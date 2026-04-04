@@ -1,3 +1,5 @@
+#pragma warning disable OPENAI001
+
 using OpenAI.Images;
 
 namespace ShareInvest.Agency.Models;
