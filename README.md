@@ -30,6 +30,17 @@ public class MyService(GptService gpt)
 }
 ```
 
+## Title Generation
+
+```csharp
+var title = await gpt.GenerateTitleAsync(conversationText, cancellationToken);
+// Returns null if generation fails or produces empty content
+// Uses gpt-5-nano with embedded PageMint-tailored system prompt
+// Titles are capped at 50 characters
+```
+
+The system prompt is stored as an embedded resource under `Prompts/title-system.md`.
+
 ## License
 
 MIT
