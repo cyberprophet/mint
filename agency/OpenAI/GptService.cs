@@ -45,12 +45,7 @@ public partial class GptService : OpenAIClient
         };
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
 
-        var completion = result.Value;
-
-        logger.LogInformation("GptService.GenerateTitleAsync: finishReason={FinishReason}, contentCount={Count}, refusal={Refusal}",
-            completion.FinishReason, completion.Content.Count, completion.Refusal ?? "(none)");
-
-        var raw = completion.Content.FirstOrDefault()?.Text;
+        var raw = result.Value.Content.FirstOrDefault()?.Text;
 
         return raw is null ? null : CleanTitleResponse(raw);
     }
