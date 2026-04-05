@@ -30,7 +30,7 @@ public partial class GptService : OpenAIClient
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
 
-    public async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
+    public virtual async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient("gpt-5-nano");
 
