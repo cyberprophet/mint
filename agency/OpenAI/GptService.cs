@@ -30,7 +30,7 @@ public partial class GptService : OpenAIClient
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
 
-    public async Task<string> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
+    public async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient("gpt-5-nano");
 
@@ -42,23 +42,26 @@ public partial class GptService : OpenAIClient
         var messages = new ChatMessage[]
         {
             ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
-            ChatMessage.CreateUserMessage($"Generate a title for this conversation:\n{conversationText}")
+            ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
 
-        var raw = result.Value.Content.FirstOrDefault()?.Text ?? string.Empty;
+        var raw = result.Value.Content.FirstOrDefault()?.Text;
 
-        return CleanTitleResponse(raw);
+        return raw is null ? null : CleanTitleResponse(raw);
     }
 
-    static string CleanTitleResponse(string raw)
+    static string? CleanTitleResponse(string raw)
     {
         var cleaned = ThinkBlockRegex().Replace(raw, string.Empty);
 
         var title = cleaned
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim())
-            .FirstOrDefault(l => l.Length > 0) ?? string.Empty;
+            .FirstOrDefault(l => l.Length > 0);
+
+        if (title is null)
+            return null;
 
         if (title.Length > 50)
             title = string.Concat(title.AsSpan(0, 47), "...");
