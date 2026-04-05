@@ -2,25 +2,33 @@
 
 using OpenAI;
 using OpenAI.Chat;
-using OpenAI.Images;
 
-using ShareInvest.Agency.Models;
-
-using System.ClientModel;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-#pragma warning disable OPENAI001
-
 namespace ShareInvest.Agency.OpenAI;
 
+/// <summary>
+/// Partial class inheriting <see cref="OpenAIClient"/> that provides GPT-based AI services, including title generation and image generation.
+/// </summary>
 public partial class GptService : OpenAIClient
 {
+    /// <summary>
+    /// Initializes a new instance of <see cref="GptService"/> with the specified logger and API key.
+    /// </summary>
+    /// <param name="logger">Logger instance for diagnostic output.</param>
+    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
     public GptService(ILogger<GptService> logger, string apiKey) : base(apiKey)
     {
         this.logger = logger;
     }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key, and custom image model name.
+    /// </summary>
+    /// <param name="logger">Logger instance for diagnostic output.</param>
+    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
+    /// <param name="imageModel">Name of the OpenAI image model to use for image generation.</param>
     public GptService(ILogger<GptService> logger, string apiKey, string imageModel) : base(apiKey)
     {
         this.logger = logger;
@@ -30,6 +38,12 @@ public partial class GptService : OpenAIClient
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
 
+    /// <summary>
+    /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
+    /// </summary>
+    /// <param name="conversationText">The full conversation text to summarise as a title.</param>
+    /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+    /// <returns>A trimmed title string, or <see langword="null"/> if no usable content was returned.</returns>
     public virtual async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient("gpt-5-nano");
@@ -81,39 +95,4 @@ public partial class GptService : OpenAIClient
 
         return reader.ReadToEnd();
     });
-
-    public async Task<T?> GenerateImageAsync<T>(ImageGenerationRequest request, CancellationToken cancellationToken = default) where T : class
-    {
-        var size = MapSize(request.AspectRatio);
-
-        var imageClient = GetImageClient(imageModel);
-
-        var options = new ImageGenerationOptions
-        {
-            Size = size,
-            Quality = request.Quality ?? GeneratedImageQuality.HighQuality,
-            OutputFileFormat = GeneratedImageFileFormat.Png,
-        };
-        ClientResult<GeneratedImage> result;
-
-        try
-        {
-            result = await imageClient.GenerateImageAsync(request.Prompt, options, cancellationToken);
-
-            return result.Value.ImageBytes as T;
-        }
-        catch (ClientResultException ex) when (ex.Status == 400)
-        {
-            logger.LogWarning(ex, "Image generation blocked: {Message}", ex.Message);
-
-            throw new ImageGenerationModerationException(ex.Message);
-        }
-    }
-
-    static GeneratedImageSize MapSize(string aspectRatio) => aspectRatio switch
-    {
-        "9:16" => GeneratedImageSize.W1024xH1536,
-        "16:9" => GeneratedImageSize.W1536xH1024,
-        _ => GeneratedImageSize.W1024xH1024,
-    };
 }
