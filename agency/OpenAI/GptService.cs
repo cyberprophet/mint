@@ -36,7 +36,6 @@ public partial class GptService : OpenAIClient
 
         var options = new ChatCompletionOptions
         {
-            Temperature = 0.5f,
             MaxOutputTokenCount = 100
         };
         var messages = new ChatMessage[]
