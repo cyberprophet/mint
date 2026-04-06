@@ -102,10 +102,39 @@ public partial class GptService
         };
 
         const int maxIterations = 10;
+        var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < maxIterations; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Sliding window: keep the last keepCount tool messages intact;
+            // replace all older tool messages with brief content-aware summaries
+            // so the model knows what was already retrieved without re-querying.
+            const int keepCount = 4;
+            int toolMessageCount = messages.Count(m => m is ToolChatMessage);
+            if (toolMessageCount > keepCount)
+            {
+                int toCompress = toolMessageCount - keepCount;
+                int compressed = 0;
+                for (int m = 2; m < messages.Count && compressed < toCompress; m++)
+                {
+                    if (messages[m] is ToolChatMessage tcm)
+                    {
+                        var original = tcm.Content.FirstOrDefault()?.Text ?? string.Empty;
+                        var snippet = original.Length <= 150
+                            ? original
+                            : original[..150];
+                        // Trim to the last word boundary to avoid mid-word cuts.
+                        var lastSpace = snippet.LastIndexOf(' ');
+                        if (lastSpace > 80)
+                            snippet = snippet[..lastSpace];
+                        var summary = $"[Compressed] {snippet}...";
+                        messages[m] = ChatMessage.CreateToolMessage(tcm.ToolCallId, summary);
+                        compressed++;
+                    }
+                }
+            }
 
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
             var completion = result.Value;
@@ -127,19 +156,33 @@ public partial class GptService
                     {
                         using var args = JsonDocument.Parse(toolCall.FunctionArguments.ToString());
 
-                        toolResult = toolCall.FunctionName switch
+                        string toolResult2;
+
+                        switch (toolCall.FunctionName)
                         {
-                            "web_search_exa" => await webTools.SearchAsync(
-                                args.RootElement.GetProperty("query").GetString() ?? "",
-                                args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
-                                cancellationToken),
+                            case "web_search_exa":
+                                toolResult2 = await webTools.SearchAsync(
+                                    args.RootElement.GetProperty("query").GetString() ?? "",
+                                    args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
+                                    cancellationToken);
+                                break;
 
-                            "web_fetch" => await webTools.FetchAsync(
-                                args.RootElement.GetProperty("url").GetString() ?? "",
-                                cancellationToken),
+                            case "web_fetch":
+                                var fetchUrl = args.RootElement.GetProperty("url").GetString() ?? "";
+                                if (!fetchedUrls.Add(fetchUrl))
+                                {
+                                    toolResult2 = "[Already fetched — see previous results above]";
+                                    break;
+                                }
+                                toolResult2 = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                break;
 
-                            _ => $"Unknown tool: {toolCall.FunctionName}"
-                        };
+                            default:
+                                toolResult2 = $"Unknown tool: {toolCall.FunctionName}";
+                                break;
+                        }
+
+                        toolResult = toolResult2;
                     }
                     catch (Exception ex)
                     {

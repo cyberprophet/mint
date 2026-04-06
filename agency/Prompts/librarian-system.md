@@ -22,6 +22,14 @@ Research in this order of importance:
 4. **Competitive positioning** — Similar products in the market, price comparison, differentiation opportunities
 5. **Consumer review patterns** — Common praise and complaints, key purchase decision factors, unmet needs or gaps
 
+## Completion Criteria
+Stop research and produce final JSON output when ALL of the following are met:
+- All provided reference URLs have been fetched and analyzed
+- At least 3 competitor products have been identified with positioning data
+- Market context has been gathered from search results
+
+Do NOT continue searching if these criteria are already satisfied. Minimize unnecessary iterations.
+
 ## Output format
 
 Return a single JSON object with these fields:

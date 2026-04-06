@@ -8,9 +8,11 @@ namespace ShareInvest.Agency.Models;
 /// <param name="InputTokens">Number of input tokens consumed.</param>
 /// <param name="OutputTokens">Number of output tokens generated.</param>
 /// <param name="Purpose">Operation type: "title", "vision", "research", "image".</param>
+/// <param name="MessageId">Optional message identifier for correlation (e.g. chat message ID).</param>
 public record ApiUsageEvent(
     string Provider,
     string Model,
     int InputTokens,
     int OutputTokens,
-    string Purpose);
+    string Purpose,
+    long? MessageId = null);
