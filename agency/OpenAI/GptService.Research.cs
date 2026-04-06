@@ -42,8 +42,8 @@ public partial class GptService
         string[] urls,
         string? category,
         string model = "gpt-5.4-nano",
-        Action<ApiUsageEvent>? onUsage = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<ApiUsageEvent>? onUsage = null)
     {
         var chatClient = GetChatClient(model);
 

@@ -21,7 +21,7 @@ public partial class GptService
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
     /// <returns>The generated image bytes cast to <typeparamref name="T"/>, or <see langword="null"/> if the cast fails.</returns>
     /// <exception cref="ImageGenerationModerationException">Thrown when OpenAI's safety system rejects the request.</exception>
-    public async Task<T?> GenerateImageAsync<T>(ImageGenerationRequest request, Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default) where T : class
+    public async Task<T?> GenerateImageAsync<T>(ImageGenerationRequest request, CancellationToken cancellationToken = default, Action<ApiUsageEvent>? onUsage = null) where T : class
     {
         var size = MapSize(request.AspectRatio);
 
@@ -39,7 +39,10 @@ public partial class GptService
         {
             result = await imageClient.GenerateImageAsync(request.Prompt, options, cancellationToken);
 
-            onUsage?.Invoke(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1", 0, 0, "image"));
+            if (onUsage is not null)
+            {
+                onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1", 0, 0, "image"));
+            }
 
             return result.Value.ImageBytes as T;
         }

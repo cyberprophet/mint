@@ -24,8 +24,8 @@ public partial class GptService
         BinaryData imageBytes,
         string mimeType,
         string model = "gpt-5.4",
-        Action<ApiUsageEvent>? onUsage = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<ApiUsageEvent>? onUsage = null)
     {
         ArgumentNullException.ThrowIfNull(imageBytes);
         ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
