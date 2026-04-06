@@ -3,6 +3,8 @@
 using OpenAI;
 using OpenAI.Chat;
 
+using ShareInvest.Agency.Models;
+
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -58,9 +60,10 @@ public partial class GptService : OpenAIClient
     /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
     /// </summary>
     /// <param name="conversationText">The full conversation text to summarise as a title.</param>
+    /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
     /// <returns>A trimmed title string, or <see langword="null"/> if no usable content was returned.</returns>
-    public virtual async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default)
+    public virtual async Task<string?> GenerateTitleAsync(string conversationText, Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient("gpt-5-nano");
 
@@ -74,6 +77,11 @@ public partial class GptService : OpenAIClient
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+
+        if (onUsage is not null && result.Value.Usage is { } usage)
+        {
+            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title"));
+        }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
 

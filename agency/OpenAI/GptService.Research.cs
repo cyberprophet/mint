@@ -34,6 +34,7 @@ public partial class GptService
     /// <param name="urls">Reference URLs to fetch and analyze (product pages, brand sites, etc.).</param>
     /// <param name="category">Optional product category hint to guide research focus.</param>
     /// <param name="model">Chat model to use for the research agent.</param>
+    /// <param name="onUsage">Optional callback invoked with token usage after each tool-calling round.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Parsed <see cref="ResearchResult"/>, or <see langword="null"/> if the agent did not return valid JSON.</returns>
     public virtual async Task<ResearchResult?> ResearchProductAsync(
@@ -41,6 +42,7 @@ public partial class GptService
         string[] urls,
         string? category,
         string model = "gpt-5.4-nano",
+        Action<ApiUsageEvent>? onUsage = null,
         CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient(model);
@@ -107,6 +109,11 @@ public partial class GptService
 
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
             var completion = result.Value;
+
+            if (onUsage is not null && completion.Usage is { } usage)
+            {
+                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research"));
+            }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
             {

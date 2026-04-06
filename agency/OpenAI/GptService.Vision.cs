@@ -17,12 +17,14 @@ public partial class GptService
     /// <param name="imageBytes">Raw image bytes (PNG, JPEG, WebP, GIF).</param>
     /// <param name="mimeType">MIME type of the image (e.g., "image/jpeg").</param>
     /// <param name="model">Vision-capable model name.</param>
+    /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Parsed <see cref="VisualDnaResult"/>, or <see langword="null"/> if parsing or validation fails.</returns>
     public virtual async Task<VisualDnaResult?> AnalyzeImageAsync(
         BinaryData imageBytes,
         string mimeType,
         string model = "gpt-5.4",
+        Action<ApiUsageEvent>? onUsage = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(imageBytes);
@@ -46,6 +48,11 @@ public partial class GptService
 #pragma warning restore OPENAI001
 
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+
+        if (onUsage is not null && result.Value.Usage is { } usage)
+        {
+            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "vision"));
+        }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
 
