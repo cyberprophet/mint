@@ -191,7 +191,7 @@ public sealed partial class WebTools : IDisposable
 
             sb.Append(text);
 
-            const int maxChars = 50_000;
+            const int maxChars = 8_000;
 
             if (sb.Length > maxChars)
             {

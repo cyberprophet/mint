@@ -107,6 +107,25 @@ public partial class GptService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Sliding window: keep system + user messages and the last 2 assistant+tool pairs;
+            // replace older tool messages with short summaries to cap context growth.
+            const int keepPairs = 2;
+            int toolMessageCount = messages.Count(m => m is ToolChatMessage);
+            if (toolMessageCount > keepPairs * 2)
+            {
+                int pairsToCompress = toolMessageCount / 2 - keepPairs;
+                int compressed = 0;
+                for (int m = 2; m < messages.Count && compressed < pairsToCompress; m++)
+                {
+                    if (messages[m] is ToolChatMessage tcm)
+                    {
+                        var summary = $"[Previous search result — content retrieved]";
+                        messages[m] = ChatMessage.CreateToolMessage(tcm.ToolCallId, summary);
+                        compressed++;
+                    }
+                }
+            }
+
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
             var completion = result.Value;
 
