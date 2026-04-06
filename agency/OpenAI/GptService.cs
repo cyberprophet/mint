@@ -35,8 +35,24 @@ public partial class GptService : OpenAIClient
         this.imageModel = imageModel;
     }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key,
+    /// custom image model name, and optional Exa API key for web research.
+    /// </summary>
+    /// <param name="logger">Logger instance for diagnostic output.</param>
+    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
+    /// <param name="imageModel">Name of the OpenAI image model to use for image generation.</param>
+    /// <param name="exaApiKey">Optional Exa API key for authenticated web search.</param>
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey) : base(apiKey)
+    {
+        this.logger = logger;
+        this.imageModel = imageModel;
+        this.webTools = new WebTools(exaApiKey);
+    }
+
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
+    readonly WebTools webTools = new();
 
     /// <summary>
     /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
