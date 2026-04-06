@@ -14,7 +14,10 @@ namespace ShareInvest.Agency;
 public sealed partial class WebTools : IDisposable
 {
     readonly HttpClient _httpClient;
+    readonly HttpClient _fetchClient;
     readonly Uri _exaEndpoint;
+
+    const int MaxRedirects = 5;
 
     /// <summary>
     /// Initializes a new <see cref="WebTools"/> instance.
@@ -32,7 +35,18 @@ public sealed partial class WebTools : IDisposable
             MaxResponseContentBufferSize = 5 * 1024 * 1024
         };
 
+        // Separate client for FetchAsync with auto-redirect disabled
+        // to re-validate each redirect hop against the SSRF deny-list.
+        _fetchClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            Timeout = TimeSpan.FromSeconds(30),
+            MaxResponseContentBufferSize = 5 * 1024 * 1024
+        };
+
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+        _fetchClient.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
         _exaEndpoint = string.IsNullOrEmpty(exaApiKey)
@@ -121,39 +135,72 @@ public sealed partial class WebTools : IDisposable
         if (await IsPrivateHostAsync(uri.Host, cancellationToken))
             return "Error: Requests to private/internal network addresses are not allowed.";
 
-        using var response = await _httpClient.GetAsync(uri, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        // Manual redirect loop — re-validate each hop against the SSRF deny-list.
+        var currentUri = uri;
 
-        var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+        HttpResponseMessage response;
 
-        if (!contentType.StartsWith("text/") && contentType != "application/xhtml+xml")
-            return $"Error: Non-text content type ({contentType}). Only text/html pages are supported.";
-
-        var html = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        // Extract structured metadata before stripping HTML
-        var metadata = ExtractMetadata(html);
-        var text = StripHtml(html);
-
-        var result = new StringBuilder();
-
-        if (metadata.Length > 0)
+        for (int hop = 0; ; hop++)
         {
-            result.Append(metadata);
-            result.Append("\n\n---\n\n");
+            response = await _fetchClient.GetAsync(currentUri, cancellationToken);
+
+            if ((int)response.StatusCode is >= 301 and <= 308
+                && response.Headers.Location is { } location)
+            {
+                if (hop >= MaxRedirects)
+                    return $"Error: Too many redirects (exceeded {MaxRedirects}).";
+
+                var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
+
+                if (nextUri.Scheme != "http" && nextUri.Scheme != "https")
+                    return $"Error: Redirect to unsupported scheme ({nextUri.Scheme}).";
+
+                if (await IsPrivateHostAsync(nextUri.Host, cancellationToken))
+                    return "Error: Redirect target resolves to a private/internal network address.";
+
+                currentUri = nextUri;
+                response.Dispose();
+                continue;
+            }
+
+            break;
         }
 
-        result.Append(text);
-
-        const int maxChars = 50_000;
-
-        if (result.Length > maxChars)
+        using (response)
         {
-            result.Length = maxChars;
-            result.Append("\n[Content truncated]");
-        }
+            response.EnsureSuccessStatusCode();
 
-        return result.ToString();
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+
+            if (!contentType.StartsWith("text/") && contentType != "application/xhtml+xml")
+                return $"Error: Non-text content type ({contentType}). Only text-based pages are supported.";
+
+            var html = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // Extract structured metadata before stripping HTML
+            var metadata = ExtractMetadata(html);
+            var text = StripHtml(html);
+
+            var sb = new StringBuilder();
+
+            if (metadata.Length > 0)
+            {
+                sb.Append(metadata);
+                sb.Append("\n\n---\n\n");
+            }
+
+            sb.Append(text);
+
+            const int maxChars = 50_000;
+
+            if (sb.Length > maxChars)
+            {
+                sb.Length = maxChars;
+                sb.Append("\n[Content truncated]");
+            }
+
+            return sb.ToString();
+        }
     }
 
     /// <summary>
@@ -275,5 +322,9 @@ public sealed partial class WebTools : IDisposable
     private static partial Regex ExcessiveNewlineRegex();
 
     /// <inheritdoc />
-    public void Dispose() => _httpClient.Dispose();
+    public void Dispose()
+    {
+        _httpClient.Dispose();
+        _fetchClient.Dispose();
+    }
 }
