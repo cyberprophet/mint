@@ -78,7 +78,11 @@ public sealed partial class WebTools : IDisposable
                     query,
                     type = "auto",
                     numResults,
-                    livecrawl = "fallback"
+                    livecrawl = "fallback",
+                    contents = new
+                    {
+                        text = new { maxCharacters = 3000 }
+                    }
                 }
             }
         };

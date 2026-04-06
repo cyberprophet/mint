@@ -102,6 +102,7 @@ public partial class GptService
         };
 
         const int maxIterations = 10;
+        var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -155,19 +156,33 @@ public partial class GptService
                     {
                         using var args = JsonDocument.Parse(toolCall.FunctionArguments.ToString());
 
-                        toolResult = toolCall.FunctionName switch
+                        string toolResult2;
+
+                        switch (toolCall.FunctionName)
                         {
-                            "web_search_exa" => await webTools.SearchAsync(
-                                args.RootElement.GetProperty("query").GetString() ?? "",
-                                args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
-                                cancellationToken),
+                            case "web_search_exa":
+                                toolResult2 = await webTools.SearchAsync(
+                                    args.RootElement.GetProperty("query").GetString() ?? "",
+                                    args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
+                                    cancellationToken);
+                                break;
 
-                            "web_fetch" => await webTools.FetchAsync(
-                                args.RootElement.GetProperty("url").GetString() ?? "",
-                                cancellationToken),
+                            case "web_fetch":
+                                var fetchUrl = args.RootElement.GetProperty("url").GetString() ?? "";
+                                if (!fetchedUrls.Add(fetchUrl))
+                                {
+                                    toolResult2 = "[Already fetched — see previous results above]";
+                                    break;
+                                }
+                                toolResult2 = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                break;
 
-                            _ => $"Unknown tool: {toolCall.FunctionName}"
-                        };
+                            default:
+                                toolResult2 = $"Unknown tool: {toolCall.FunctionName}";
+                                break;
+                        }
+
+                        toolResult = toolResult2;
                     }
                     catch (Exception ex)
                     {
