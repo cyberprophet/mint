@@ -5,7 +5,7 @@ Your job: examine the attached product image and extract ONLY structured Visual 
 ## Response rules
 
 - Return extracted information directly as a single JSON object, no preamble or explanation
-- If specific visual attributes cannot be determined, state "unknown" for that field rather than guessing
+- If specific visual attributes cannot be determined, use type-safe fallbacks: `[]` for array fields (dominantColors, materials), `"unknown"` for string fields (mood, style, backgroundType, rawDescription)
 - Describe ONLY what is visible in the image — do NOT infer or add information that is not present
 - Be thorough on Visual DNA extraction, concise on everything else
 - Match the language of the request for rawDescription content
