@@ -49,7 +49,8 @@ public partial class GptService : OpenAIClient
     {
         this.logger = logger;
         this.imageModel = imageModel;
-        this.webTools = new WebTools(exaApiKey);
+
+        webTools = new WebTools(exaApiKey);
     }
 
     readonly ILogger<GptService> logger;
@@ -63,7 +64,7 @@ public partial class GptService : OpenAIClient
     /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
     /// <returns>A trimmed title string, or <see langword="null"/> if no usable content was returned.</returns>
-    public virtual async Task<string?> GenerateTitleAsync(string conversationText, CancellationToken cancellationToken = default, Action<ApiUsageEvent>? onUsage = null)
+    public virtual async Task<string?> GenerateTitleAsync(string conversationText, Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
     {
         var chatClient = GetChatClient("gpt-5-nano");
 
