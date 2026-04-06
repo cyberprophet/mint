@@ -107,19 +107,28 @@ public partial class GptService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Sliding window: keep system + user messages and the last 2 assistant+tool pairs;
-            // replace older tool messages with short summaries to cap context growth.
-            const int keepPairs = 2;
+            // Sliding window: keep the last keepCount tool messages intact;
+            // replace all older tool messages with brief content-aware summaries
+            // so the model knows what was already retrieved without re-querying.
+            const int keepCount = 4;
             int toolMessageCount = messages.Count(m => m is ToolChatMessage);
-            if (toolMessageCount > keepPairs * 2)
+            if (toolMessageCount > keepCount)
             {
-                int pairsToCompress = toolMessageCount / 2 - keepPairs;
+                int toCompress = toolMessageCount - keepCount;
                 int compressed = 0;
-                for (int m = 2; m < messages.Count && compressed < pairsToCompress; m++)
+                for (int m = 2; m < messages.Count && compressed < toCompress; m++)
                 {
                     if (messages[m] is ToolChatMessage tcm)
                     {
-                        var summary = $"[Previous search result — content retrieved]";
+                        var original = tcm.Content.FirstOrDefault()?.Text ?? string.Empty;
+                        var snippet = original.Length <= 150
+                            ? original
+                            : original[..150];
+                        // Trim to the last word boundary to avoid mid-word cuts.
+                        var lastSpace = snippet.LastIndexOf(' ');
+                        if (lastSpace > 80)
+                            snippet = snippet[..lastSpace];
+                        var summary = $"[Compressed] {snippet}...";
                         messages[m] = ChatMessage.CreateToolMessage(tcm.ToolCallId, summary);
                         compressed++;
                     }
