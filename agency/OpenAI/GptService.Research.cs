@@ -1,9 +1,6 @@
-using System.Net;
-using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging;
 
@@ -28,6 +25,8 @@ public partial class GptService
 
     /// <summary>
     /// Conducts multi-step web research on a product and returns structured market insights.
+    /// Uses <see cref="WebTools"/> for provider-agnostic web search and URL fetching,
+    /// driven by an OpenAI tool-calling loop.
     /// </summary>
     /// <param name="productInfo">Product name or description to research.</param>
     /// <param name="urls">Reference URLs to fetch and analyze (product pages, brand sites, etc.).</param>
@@ -44,7 +43,6 @@ public partial class GptService
     {
         var chatClient = GetChatClient(model);
 
-        // Define tools matching P1's websearch and webfetch
         var searchTool = ChatTool.CreateFunctionTool(
             "web_search_exa",
             "Search the web for information. Returns search results with titles, URLs, and content snippets.",
@@ -80,7 +78,6 @@ public partial class GptService
         options.Tools.Add(searchTool);
         options.Tools.Add(fetchTool);
 
-        // Build user message
         var userContent = new StringBuilder($"Research this product: {productInfo}");
 
         if (!string.IsNullOrEmpty(category))
@@ -100,10 +97,7 @@ public partial class GptService
             ChatMessage.CreateUserMessage(userContent.ToString())
         };
 
-        using var httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-        httpClient.Timeout = TimeSpan.FromSeconds(30);
+        using var webTools = new WebTools();
 
         const int maxIterations = 10;
 
@@ -116,28 +110,29 @@ public partial class GptService
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
             {
-                // Add assistant message with tool calls
                 messages.Add(ChatMessage.CreateAssistantMessage(completion));
 
-                // Process each tool call
                 foreach (var toolCall in completion.ToolCalls)
                 {
                     string toolResult;
 
                     try
                     {
-                        if (toolCall.FunctionName == "web_search_exa")
+                        using var args = JsonDocument.Parse(toolCall.FunctionArguments.ToString());
+
+                        toolResult = toolCall.FunctionName switch
                         {
-                            toolResult = await CallExaSearchAsync(httpClient, toolCall.FunctionArguments, cancellationToken);
-                        }
-                        else if (toolCall.FunctionName == "web_fetch")
-                        {
-                            toolResult = await CallWebFetchAsync(httpClient, toolCall.FunctionArguments, cancellationToken);
-                        }
-                        else
-                        {
-                            toolResult = $"Unknown tool: {toolCall.FunctionName}";
-                        }
+                            "web_search_exa" => await webTools.SearchAsync(
+                                args.RootElement.GetProperty("query").GetString() ?? "",
+                                args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
+                                cancellationToken),
+
+                            "web_fetch" => await webTools.FetchAsync(
+                                args.RootElement.GetProperty("url").GetString() ?? "",
+                                cancellationToken),
+
+                            _ => $"Unknown tool: {toolCall.FunctionName}"
+                        };
                     }
                     catch (Exception ex)
                     {
@@ -150,7 +145,6 @@ public partial class GptService
             }
             else if (completion.FinishReason == ChatFinishReason.Stop)
             {
-                // Final response — parse JSON
                 var raw = completion.Content.FirstOrDefault()?.Text;
 
                 if (string.IsNullOrWhiteSpace(raw))
@@ -169,134 +163,8 @@ public partial class GptService
         return null;
     }
 
-    /// <summary>
-    /// Call Exa MCP web_search_exa via direct HTTP POST (same as P1 OpenCode).
-    /// No API key required.
-    /// </summary>
-    async Task<string> CallExaSearchAsync(HttpClient httpClient, BinaryData arguments, CancellationToken cancellationToken)
-    {
-        using var doc = JsonDocument.Parse(arguments.ToString());
-        var root = doc.RootElement;
-
-        var query = root.GetProperty("query").GetString() ?? "";
-        var numResults = root.TryGetProperty("numResults", out var nrProp) ? nrProp.GetInt32() : 8;
-
-        var jsonRpcRequest = new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/call",
-            @params = new
-            {
-                name = "web_search_exa",
-                arguments = new
-                {
-                    query,
-                    type = "auto",
-                    numResults,
-                    livecrawl = "fallback"
-                }
-            }
-        };
-
-        var content = new StringContent(
-            JsonSerializer.Serialize(jsonRpcRequest),
-            Encoding.UTF8,
-            "application/json");
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://mcp.exa.ai/mcp")
-        {
-            Content = content
-        };
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
-
-        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        // Parse SSE response: find "data: {...}" line
-        foreach (var line in responseText.Split('\n'))
-        {
-            if (line.StartsWith("data: "))
-            {
-                var data = line[6..];
-
-                using var sseDoc = JsonDocument.Parse(data);
-
-                if (sseDoc.RootElement.TryGetProperty("result", out var resultProp)
-                    && resultProp.TryGetProperty("content", out var contentArr)
-                    && contentArr.GetArrayLength() > 0)
-                {
-                    return contentArr[0].GetProperty("text").GetString() ?? "No results";
-                }
-            }
-        }
-
-        return "No search results found.";
-    }
-
-    /// <summary>
-    /// Fetch a web page and return plain text content (same as P1 webfetch).
-    /// </summary>
-    async Task<string> CallWebFetchAsync(HttpClient httpClient, BinaryData arguments, CancellationToken cancellationToken)
-    {
-        using var doc = JsonDocument.Parse(arguments.ToString());
-        var url = doc.RootElement.GetProperty("url").GetString() ?? "";
-
-        if (!url.StartsWith("http://") && !url.StartsWith("https://"))
-            return "Error: URL must start with http:// or https://";
-
-        using var response = await httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        // Check size limit (5MB)
-        if (response.Content.Headers.ContentLength > 5 * 1024 * 1024)
-            return "Error: Response too large (exceeds 5MB)";
-
-        var html = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (html.Length > 5 * 1024 * 1024)
-            return "Error: Response too large (exceeds 5MB)";
-
-        // Strip HTML to plain text
-        var text = StripHtml(html);
-
-        // Truncate to prevent token explosion
-        const int maxChars = 50_000;
-
-        if (text.Length > maxChars)
-            text = text[..maxChars] + "\n[Content truncated]";
-
-        return text;
-    }
-
-    static string StripHtml(string html)
-    {
-        // Remove script and style blocks
-        var cleaned = Regex.Replace(html, @"<script[^>]*>[\s\S]*?</script>", "", RegexOptions.IgnoreCase);
-        cleaned = Regex.Replace(cleaned, @"<style[^>]*>[\s\S]*?</style>", "", RegexOptions.IgnoreCase);
-
-        // Replace block elements with newlines
-        cleaned = Regex.Replace(cleaned, @"<(br|p|div|li|tr|h[1-6])[^>]*>", "\n", RegexOptions.IgnoreCase);
-
-        // Strip remaining tags
-        cleaned = Regex.Replace(cleaned, @"<[^>]+>", "");
-
-        // Decode HTML entities
-        cleaned = WebUtility.HtmlDecode(cleaned);
-
-        // Collapse whitespace
-        cleaned = Regex.Replace(cleaned, @"[ \t]+", " ");
-        cleaned = Regex.Replace(cleaned, @"\n{3,}", "\n\n");
-
-        return cleaned.Trim();
-    }
-
     ResearchResult? ParseResearchResult(string raw)
     {
-        // Strip markdown fences if present
         var json = raw.Trim();
 
         if (json.StartsWith("```"))
