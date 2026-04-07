@@ -103,6 +103,8 @@ public partial class GptService
 
         const int maxIterations = 10;
         var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var failedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int consecutiveFetchFailures = 0;
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -136,6 +138,16 @@ public partial class GptService
                 }
             }
 
+            // Fetch failure budget: after 2 consecutive failures, force synthesis
+            if (consecutiveFetchFailures >= 2)
+            {
+                logger.LogWarning("Fetch failure budget exhausted ({Count} consecutive). Injecting synthesis prompt", consecutiveFetchFailures);
+                messages.Add(ChatMessage.CreateUserMessage(
+                    "URL fetching is failing repeatedly. Stop trying to fetch URLs. " +
+                    "Produce your final ResearchResult JSON NOW using only the search results you already have."));
+                consecutiveFetchFailures = 0; // reset so the model gets one more chance to produce JSON
+            }
+
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
             var completion = result.Value;
 
@@ -165,16 +177,26 @@ public partial class GptService
                                     args.RootElement.GetProperty("query").GetString() ?? "",
                                     args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
                                     cancellationToken);
+                                consecutiveFetchFailures = 0; // search success resets budget
                                 break;
 
                             case "web_fetch":
                                 var fetchUrl = args.RootElement.GetProperty("url").GetString() ?? "";
+
+                                // Per-URL retry limit: skip URLs that already failed
+                                if (failedUrls.Contains(fetchUrl))
+                                {
+                                    toolResult2 = $"[Skipped — this URL already failed. Use search results instead.]";
+                                    break;
+                                }
+
                                 if (!fetchedUrls.Add(fetchUrl))
                                 {
                                     toolResult2 = "[Already fetched — see previous results above]";
                                     break;
                                 }
                                 toolResult2 = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                consecutiveFetchFailures = 0; // fetch success resets budget
                                 break;
 
                             default:
@@ -188,6 +210,20 @@ public partial class GptService
                     {
                         toolResult = $"Error: {ex.Message}";
                         logger.LogWarning(ex, "Tool call {ToolName} failed", toolCall.FunctionName);
+
+                        // Track fetch failures for budget and per-URL retry limit
+                        if (toolCall.FunctionName == "web_fetch")
+                        {
+                            consecutiveFetchFailures++;
+
+                            try
+                            {
+                                using var failArgs = JsonDocument.Parse(toolCall.FunctionArguments.ToString());
+                                var failUrl = failArgs.RootElement.GetProperty("url").GetString();
+                                if (failUrl is not null) failedUrls.Add(failUrl);
+                            }
+                            catch { /* best-effort URL tracking */ }
+                        }
                     }
 
                     messages.Add(ChatMessage.CreateToolMessage(toolCall.Id, toolResult));
@@ -209,8 +245,58 @@ public partial class GptService
             }
         }
 
-        logger.LogWarning("Research loop exhausted {Max} iterations without final answer", maxIterations);
-        return null;
+        // Loop exhausted: attempt one final synthesis call with tools disabled
+        logger.LogWarning("Research loop exhausted {Max} iterations. Attempting final synthesis", maxIterations);
+        return await SynthesizePartialResultAsync(chatClient, messages, model, onUsage, cancellationToken);
+    }
+
+    async Task<ResearchResult?> SynthesizePartialResultAsync(
+        ChatClient chatClient,
+        List<ChatMessage> messages,
+        string model,
+        Action<ApiUsageEvent>? onUsage,
+        CancellationToken cancellationToken)
+    {
+        // One final call with no tools — force the model to produce JSON from gathered data
+        var synthesisOptions = new ChatCompletionOptions
+        {
+            MaxOutputTokenCount = 4096,
+            Temperature = 0.1f
+            // No tools added — forces a Stop finish reason
+        };
+
+        messages.Add(ChatMessage.CreateUserMessage(
+            "You have gathered enough data. Produce your final ResearchResult JSON NOW. " +
+            "Use only the search and fetch results from this conversation. Do not call any tools."));
+
+        try
+        {
+            var result = await chatClient.CompleteChatAsync(messages, synthesisOptions, cancellationToken);
+            var completion = result.Value;
+
+            if (onUsage is not null && completion.Usage is { } usage)
+                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research"));
+
+            var raw = completion.Content.FirstOrDefault()?.Text;
+
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                logger.LogWarning("Synthesis call returned empty response");
+                return null;
+            }
+
+            var parsed = ParseResearchResult(raw);
+
+            if (parsed is not null)
+                logger.LogInformation("Partial research result synthesized from exhausted loop");
+
+            return parsed;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Synthesis call failed after loop exhaustion");
+            return null;
+        }
     }
 
     ResearchResult? ParseResearchResult(string raw)
