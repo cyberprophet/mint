@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -105,6 +106,7 @@ public partial class GptService
         var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int consecutiveFetchFailures = 0;
+        int totalFetchRetries = 0;
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -148,12 +150,15 @@ public partial class GptService
                 consecutiveFetchFailures = 0; // reset so the model gets one more chance to produce JSON
             }
 
+            var iterationSw = Stopwatch.StartNew();
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            iterationSw.Stop();
             var completion = result.Value;
 
             if (onUsage is not null && completion.Usage is { } usage)
             {
-                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research"));
+                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research",
+                    LatencyMs: (int)iterationSw.ElapsedMilliseconds, RetryCount: totalFetchRetries));
             }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
@@ -195,7 +200,8 @@ public partial class GptService
                                     toolResult2 = "[Already fetched — see previous results above]";
                                     break;
                                 }
-                                toolResult2 = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                toolResult2 = fetchResult.ToPromptText();
                                 consecutiveFetchFailures = 0; // fetch success resets budget
                                 break;
 
@@ -215,6 +221,7 @@ public partial class GptService
                         if (toolCall.FunctionName == "web_fetch")
                         {
                             consecutiveFetchFailures++;
+                            totalFetchRetries++;
 
                             try
                             {
@@ -236,7 +243,7 @@ public partial class GptService
                 if (string.IsNullOrWhiteSpace(raw))
                     return null;
 
-                return ParseResearchResult(raw);
+                return ParseResearchResult(raw, urlsWereFetched: fetchedUrls.Count > 0);
             }
             else
             {
@@ -285,7 +292,7 @@ public partial class GptService
                 return null;
             }
 
-            var parsed = ParseResearchResult(raw);
+            var parsed = ParseResearchResult(raw, urlsWereFetched: false);
 
             if (parsed is not null)
                 logger.LogInformation("Partial research result synthesized from exhausted loop");
@@ -299,7 +306,7 @@ public partial class GptService
         }
     }
 
-    ResearchResult? ParseResearchResult(string raw)
+    ResearchResult? ParseResearchResult(string raw, bool urlsWereFetched = true)
     {
         var json = raw.Trim();
 
@@ -318,7 +325,28 @@ public partial class GptService
 
         try
         {
-            return JsonSerializer.Deserialize<ResearchResult>(json, CaseInsensitiveOptions);
+            var result = JsonSerializer.Deserialize<ResearchResult>(json, CaseInsensitiveOptions);
+
+            if (result is null)
+                return null;
+
+            // Backward compat: SchemaVersion 0 means the field was absent (v1 response)
+            // Infer Basis from context if not provided by the model
+            var basis = result.Basis;
+            if (basis is null)
+                basis = urlsWereFetched ? "research" : "category_inference";
+
+            // Return a normalized record with at least schemaVersion=2 defaults
+            if (result.SchemaVersion == 0 || result.Basis is null)
+            {
+                result = result with
+                {
+                    SchemaVersion = result.SchemaVersion == 0 ? 2 : result.SchemaVersion,
+                    Basis = basis
+                };
+            }
+
+            return result;
         }
         catch (JsonException ex)
         {

@@ -5,6 +5,7 @@ using OpenAI.Chat;
 
 using ShareInvest.Agency.Models;
 
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -77,16 +78,58 @@ public partial class GptService : OpenAIClient
             ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
+        var sw = Stopwatch.StartNew();
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        sw.Stop();
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title"));
+            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
 
-        return raw is null ? null : CleanTitleResponse(raw);
+        if (raw is null)
+            return null;
+
+        var title = CleanTitleResponse(raw);
+
+        if (title is not null)
+            return title;
+
+        // Repair attempt: <think> removal yielded empty — send a correction prompt
+        logger.LogWarning("Title generation returned non-title content — attempting repair prompt");
+
+        var repairMessages = new List<ChatMessage>
+        {
+            ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
+            ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>"),
+            ChatMessage.CreateAssistantMessage(raw),
+            ChatMessage.CreateUserMessage(
+                "Your response contained non-title content. Return ONLY the title text, no explanation.")
+        };
+
+        var repairSw = Stopwatch.StartNew();
+        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken);
+        repairSw.Stop();
+
+        if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)
+        {
+            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
+                "title", LatencyMs: (int)repairSw.ElapsedMilliseconds));
+        }
+
+        var repairRaw = repairResult.Value.Content.FirstOrDefault()?.Text;
+
+        if (repairRaw is null)
+            return null;
+
+        var repairedTitle = CleanTitleResponse(repairRaw);
+
+        if (repairedTitle is null)
+            logger.LogWarning("Title repair attempt also returned empty result");
+
+        return repairedTitle;
     }
 
     static string? CleanTitleResponse(string raw)

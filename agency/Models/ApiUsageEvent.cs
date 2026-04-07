@@ -9,10 +9,14 @@ namespace ShareInvest.Agency.Models;
 /// <param name="OutputTokens">Number of output tokens generated.</param>
 /// <param name="Purpose">Operation type: "title", "vision", "research", "image".</param>
 /// <param name="MessageId">Optional message identifier for correlation (e.g. chat message ID).</param>
+/// <param name="LatencyMs">Optional round-trip latency of the API call in milliseconds.</param>
+/// <param name="RetryCount">Optional number of retries before a successful response (0 = first attempt succeeded).</param>
 public record ApiUsageEvent(
     string Provider,
     string Model,
     int InputTokens,
     int OutputTokens,
     string Purpose,
-    long? MessageId = null);
+    long? MessageId = null,
+    int? LatencyMs = null,
+    int? RetryCount = null);

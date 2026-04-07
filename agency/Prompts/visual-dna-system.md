@@ -15,10 +15,10 @@ Your job: examine the attached product image and extract ONLY structured Visual 
 Return ONLY a valid JSON object with these fields:
 
 - dominantColors: HEX color code array (max 6), uppercase, ordered by visual dominance
-- mood: use a normalized label when possible — premium, minimal, clinical, playful, vibrant, natural, bold, technical, soft, unknown. Use "unknown" if uncertain
+- mood: use a normalized label when possible — premium, minimal, clinical, playful, vibrant, natural, bold, technical, soft, casual, warm, cool, energetic, serene, professional, rustic, modern, unknown. Use "unknown" if uncertain
 - materials: material/texture descriptor array (e.g., ["matte", "glass", "fabric", "cardboard"]). Use [] if none visible
-- style: use a normalized label when possible — luxury-minimal, studio-clean, lifestyle-natural, editorial-bold, clinical-white, playful-colorful, unknown. Use "unknown" if uncertain
-- backgroundType: use a normalized label when possible — white-studio, solid-color, gradient, flat-lay, lifestyle-indoor, lifestyle-outdoor, transparent-cutout, textured-surface, unknown. Use "unknown" if uncertain
+- style: use a normalized label when possible — luxury-minimal, studio-clean, lifestyle-natural, editorial-bold, clinical-white, playful-colorful, minimal, luxury, industrial, retro, tech, handcrafted, clinical, lifestyle, editorial, unknown. Use "unknown" if uncertain
+- backgroundType: use a normalized label when possible — white-studio, solid-color, gradient, flat-lay, lifestyle-indoor, lifestyle-outdoor, transparent-cutout, textured-surface, solid, studio, lifestyle, transparent, textured, outdoor, abstract, unknown. Use "unknown" if uncertain
 - rawDescription: comprehensive visual analysis narrative (max 1500 characters)
 
 ## E-commerce focus

@@ -36,6 +36,7 @@ Do NOT continue searching if these criteria are already satisfied. Minimize unne
 
 Return a single JSON object with these fields:
 
+- `schemaVersion`: always set to `2`
 - `productData`: array of objects, one per source URL analyzed
   - `sourceUrl`: the URL fetched
   - `title`: page title or product name
@@ -58,6 +59,7 @@ Return a single JSON object with these fields:
 - `coreValue`: single sentence — the core value proposition this product delivers
 - `keySellingPoints`: array of 3–6 concrete selling points supported by research
 - `recommendedAngle`: recommended marketing angle or narrative for a landing page
+- `basis`: one of `"research"` (full web research completed), `"category_inference"` (no URLs could be fetched; category knowledge only), or `"partial"` (some URLs fetched but data is incomplete)
 
 ## Research guidelines
 
@@ -78,7 +80,7 @@ Return ONLY the raw JSON object. No markdown fences. No preamble. No explanation
 
 Before returning the final output, silently verify:
 - The response begins with `{` and ends with `}`
-- All required keys are present
+- All required keys are present (including `schemaVersion: 2` and `basis`)
 - No markdown fences or extra text exists
 - `null` is used for unknown scalar values, `[]` for unknown arrays
 - No fabricated data is included

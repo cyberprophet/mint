@@ -5,13 +5,15 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using ShareInvest.Agency.Models;
+
 namespace ShareInvest.Agency;
 
 /// <summary>
 /// Provider-agnostic web tools for search and URL fetching.
 /// Mirrors P1 OpenCode's built-in <c>websearch</c> and <c>webfetch</c> tools.
 /// </summary>
-public sealed partial class WebTools : IDisposable
+public sealed partial class WebTools : ISearchProvider, IDisposable
 {
     readonly HttpClient _httpClient;
     readonly HttpClient _fetchClient;
@@ -123,24 +125,26 @@ public sealed partial class WebTools : IDisposable
     }
 
     /// <summary>
-    /// Fetch a web page and return structured text content.
+    /// Fetch a web page and return a structured <see cref="FetchResult"/> with separated metadata and body text.
     /// Equivalent to P1's <c>webfetch</c> tool with HTML-to-text conversion.
     /// Extracts OG metadata and JSON-LD structured data before stripping HTML.
     /// </summary>
     /// <param name="url">The URL to fetch (must start with http:// or https://).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Page content as plain text with metadata header (max 50,000 characters).</returns>
-    public async Task<string> FetchAsync(string url, CancellationToken cancellationToken = default)
+    /// <returns>Structured <see cref="FetchResult"/> with page metadata and body text.</returns>
+    /// <exception cref="InvalidOperationException">Thrown for SSRF-blocked URLs, non-text content, or too many redirects.</exception>
+    public async Task<FetchResult> FetchAsync(string url, CancellationToken cancellationToken = default)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || (uri.Scheme != "http" && uri.Scheme != "https"))
-            return "Error: URL must be a valid http:// or https:// address.";
+            throw new InvalidOperationException("URL must be a valid http:// or https:// address.");
 
         if (await IsPrivateHostAsync(uri.Host, cancellationToken))
-            return "Error: Requests to private/internal network addresses are not allowed.";
+            throw new InvalidOperationException("Requests to private/internal network addresses are not allowed.");
 
         // Manual redirect loop — re-validate each hop against the SSRF deny-list.
         var currentUri = uri;
+        var warnings = new List<string>();
 
         HttpResponseMessage response;
 
@@ -152,15 +156,15 @@ public sealed partial class WebTools : IDisposable
                 && response.Headers.Location is { } location)
             {
                 if (hop >= MaxRedirects)
-                    return $"Error: Too many redirects (exceeded {MaxRedirects}).";
+                    throw new InvalidOperationException($"Too many redirects (exceeded {MaxRedirects}).");
 
                 var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
 
                 if (nextUri.Scheme != "http" && nextUri.Scheme != "https")
-                    return $"Error: Redirect to unsupported scheme ({nextUri.Scheme}).";
+                    throw new InvalidOperationException($"Redirect to unsupported scheme ({nextUri.Scheme}).");
 
                 if (await IsPrivateHostAsync(nextUri.Host, cancellationToken))
-                    return "Error: Redirect target resolves to a private/internal network address.";
+                    throw new InvalidOperationException("Redirect target resolves to a private/internal network address.");
 
                 currentUri = nextUri;
                 response.Dispose();
@@ -176,6 +180,7 @@ public sealed partial class WebTools : IDisposable
             && cfValues.Any(v => v.Contains("challenge", StringComparison.OrdinalIgnoreCase)))
         {
             response.Dispose();
+            warnings.Add("Cloudflare challenge detected — retried with page-mint-agency user agent");
 
             using var retryRequest = new HttpRequestMessage(HttpMethod.Get, currentUri);
             retryRequest.Headers.UserAgent.Clear();
@@ -188,36 +193,40 @@ public sealed partial class WebTools : IDisposable
         {
             response.EnsureSuccessStatusCode();
 
+            var statusCode = (int)response.StatusCode;
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
 
             if (!contentType.StartsWith("text/") && contentType != "application/xhtml+xml")
-                return $"Error: Non-text content type ({contentType}). Only text-based pages are supported.";
+                throw new InvalidOperationException($"Non-text content type ({contentType}). Only text-based pages are supported.");
 
             var html = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            // Extract structured metadata before stripping HTML
-            var metadata = ExtractMetadata(html);
+            // Extract structured metadata fields
+            var title = ExtractMetaField(html, "og:title") ?? ExtractTitleTag(html);
+            var metaDescription = ExtractMetaField(html, "og:description") ?? ExtractMetaDescription(html);
+            var ogImage = ExtractMetaField(html, "og:image");
+            var jsonLd = ExtractJsonLdText(html);
+
             var text = StripHtml(html);
 
-            var sb = new StringBuilder();
-
-            if (metadata.Length > 0)
-            {
-                sb.Append(metadata);
-                sb.Append("\n\n---\n\n");
-            }
-
-            sb.Append(text);
-
             const int maxChars = 8_000;
+            bool truncated = text.Length > maxChars;
 
-            if (sb.Length > maxChars)
+            if (truncated)
             {
-                sb.Length = maxChars;
-                sb.Append("\n[Content truncated]");
+                text = text[..maxChars];
+                warnings.Add("Content truncated to 8,000 characters");
             }
 
-            return sb.ToString();
+            return new FetchResult(
+                FinalUrl: currentUri.ToString(),
+                StatusCode: statusCode,
+                Title: title,
+                MetaDescription: metaDescription,
+                OgImage: ogImage,
+                JsonLd: jsonLd,
+                MainText: text,
+                Warnings: warnings.Count > 0 ? [.. warnings] : null);
         }
     }
 
@@ -270,23 +279,37 @@ public sealed partial class WebTools : IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Extracts Open Graph meta tags and JSON-LD structured data from HTML
-    /// before the main content is stripped. Returns a summary header.
-    /// </summary>
-    static string ExtractMetadata(string html)
+    /// <summary>Extracts the value of a named OG meta property from HTML.</summary>
+    static string? ExtractMetaField(string html, string property)
+    {
+        foreach (Match m in OgMetaRegex().Matches(html))
+        {
+            if (string.Equals(m.Groups[1].Value, property, StringComparison.OrdinalIgnoreCase))
+                return WebUtility.HtmlDecode(m.Groups[2].Value);
+        }
+
+        return null;
+    }
+
+    /// <summary>Extracts the &lt;title&gt; tag content from HTML.</summary>
+    static string? ExtractTitleTag(string html)
+    {
+        var m = TitleTagRegex().Match(html);
+        return m.Success ? WebUtility.HtmlDecode(m.Groups[1].Value.Trim()) : null;
+    }
+
+    /// <summary>Extracts the standard meta description from HTML.</summary>
+    static string? ExtractMetaDescription(string html)
+    {
+        var m = MetaDescriptionRegex().Match(html);
+        return m.Success ? WebUtility.HtmlDecode(m.Groups[1].Value) : null;
+    }
+
+    /// <summary>Extracts and concatenates all JSON-LD script blocks from HTML.</summary>
+    static string? ExtractJsonLdText(string html)
     {
         var parts = new List<string>();
 
-        // Extract OG meta tags: <meta property="og:..." content="...">
-        foreach (Match m in OgMetaRegex().Matches(html))
-        {
-            var property = m.Groups[1].Value;
-            var content = WebUtility.HtmlDecode(m.Groups[2].Value);
-            parts.Add($"{property}: {content}");
-        }
-
-        // Extract JSON-LD blocks: <script type="application/ld+json">...</script>
         foreach (Match m in JsonLdRegex().Matches(html))
         {
             var jsonLd = m.Groups[1].Value.Trim();
@@ -294,12 +317,10 @@ public sealed partial class WebTools : IDisposable
             if (jsonLd.Length > 5000)
                 jsonLd = jsonLd[..5000] + "...";
 
-            parts.Add($"[JSON-LD] {jsonLd}");
+            parts.Add(jsonLd);
         }
 
-        return parts.Count > 0
-            ? $"[Metadata]\n{string.Join("\n", parts)}"
-            : "";
+        return parts.Count > 0 ? string.Join("\n", parts) : null;
     }
 
     static string StripHtml(string html)
@@ -317,6 +338,12 @@ public sealed partial class WebTools : IDisposable
 
     [GeneratedRegex(@"<meta\s+property=""(og:[^""]+)""\s+content=""([^""]*)""\s*/?>", RegexOptions.IgnoreCase)]
     private static partial Regex OgMetaRegex();
+
+    [GeneratedRegex(@"<title[^>]*>(.*?)</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex TitleTagRegex();
+
+    [GeneratedRegex(@"<meta\s+name=""description""\s+content=""([^""]*)""\s*/?>", RegexOptions.IgnoreCase)]
+    private static partial Regex MetaDescriptionRegex();
 
     [GeneratedRegex(@"<script\s+type=""application/ld\+json""[^>]*>([\s\S]*?)</script>", RegexOptions.IgnoreCase)]
     private static partial Regex JsonLdRegex();
