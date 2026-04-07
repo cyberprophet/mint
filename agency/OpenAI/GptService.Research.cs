@@ -199,7 +199,8 @@ public partial class GptService
                                     toolResult2 = "[Already fetched — see previous results above]";
                                     break;
                                 }
-                                toolResult2 = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                toolResult2 = fetchResult.ToPromptText();
                                 consecutiveFetchFailures = 0; // fetch success resets budget
                                 break;
 
