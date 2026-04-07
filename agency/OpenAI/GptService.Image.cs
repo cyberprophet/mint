@@ -5,6 +5,7 @@ using OpenAI.Images;
 using ShareInvest.Agency.Models;
 
 using System.ClientModel;
+using System.Diagnostics;
 
 #pragma warning disable OPENAI001
 
@@ -37,11 +38,13 @@ public partial class GptService
 
         try
         {
+            var sw = Stopwatch.StartNew();
             result = await imageClient.GenerateImageAsync(request.Prompt, options, cancellationToken);
+            sw.Stop();
 
             if (onUsage is not null)
             {
-                onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1", 0, 0, "image"));
+                onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1", 0, 0, "image", LatencyMs: (int)sw.ElapsedMilliseconds));
             }
 
             return result.Value.ImageBytes as T;

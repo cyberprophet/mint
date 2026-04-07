@@ -5,6 +5,7 @@ using OpenAI.Chat;
 
 using ShareInvest.Agency.Models;
 
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -77,11 +78,13 @@ public partial class GptService : OpenAIClient
             ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
+        var sw = Stopwatch.StartNew();
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        sw.Stop();
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title"));
+            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;

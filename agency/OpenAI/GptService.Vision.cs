@@ -4,6 +4,7 @@ using OpenAI.Chat;
 
 using ShareInvest.Agency.Models;
 
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
 
@@ -47,11 +48,13 @@ public partial class GptService
         };
 #pragma warning restore OPENAI001
 
+        var sw = Stopwatch.StartNew();
         var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        sw.Stop();
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "vision"));
+            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "vision", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -105,6 +106,8 @@ public partial class GptService
         var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int consecutiveFetchFailures = 0;
+        int totalFetchRetries = 0;
+        var loopStopwatch = Stopwatch.StartNew();
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -153,7 +156,8 @@ public partial class GptService
 
             if (onUsage is not null && completion.Usage is { } usage)
             {
-                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research"));
+                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research",
+                    LatencyMs: (int)loopStopwatch.ElapsedMilliseconds, RetryCount: totalFetchRetries));
             }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
@@ -215,6 +219,7 @@ public partial class GptService
                         if (toolCall.FunctionName == "web_fetch")
                         {
                             consecutiveFetchFailures++;
+                            totalFetchRetries++;
 
                             try
                             {
