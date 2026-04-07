@@ -5,7 +5,7 @@ using OpenAI.Chat;
 using ShareInvest.Agency.Models;
 
 using System.Diagnostics;
-using System.Reflection;
+
 using System.Text.Json;
 
 namespace ShareInvest.Agency.OpenAI;
@@ -15,13 +15,15 @@ public partial class GptService
     /// <summary>
     /// Analyzes a product image to extract Visual DNA using OpenAI vision.
     /// </summary>
+    /// <param name="systemPrompt">System prompt that defines the visual analysis rules and output format.</param>
     /// <param name="imageBytes">Raw image bytes (PNG, JPEG, WebP, GIF).</param>
     /// <param name="mimeType">MIME type of the image (e.g., "image/jpeg").</param>
     /// <param name="model">Vision-capable model name.</param>
-    /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <returns>Parsed <see cref="VisualDnaResult"/>, or <see langword="null"/> if parsing or validation fails.</returns>
     public virtual async Task<VisualDnaResult?> AnalyzeImageAsync(
+        string systemPrompt,
         BinaryData imageBytes,
         string mimeType,
         string model = "gpt-5.4",
@@ -41,7 +43,7 @@ public partial class GptService
         };
         var messages = new ChatMessage[]
         {
-            ChatMessage.CreateSystemMessage(visualDnaSystemPrompt.Value),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage(
                 ChatMessageContentPart.CreateImagePart(imageBytes, mimeType),
                 ChatMessageContentPart.CreateTextPart("Extract Visual DNA from this product image."))
@@ -76,7 +78,7 @@ public partial class GptService
 
         var repairMessages = new List<ChatMessage>
         {
-            ChatMessage.CreateSystemMessage(visualDnaSystemPrompt.Value),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage(
                 ChatMessageContentPart.CreateImagePart(imageBytes, mimeType),
                 ChatMessageContentPart.CreateTextPart("Extract Visual DNA from this product image.")),
@@ -161,14 +163,4 @@ public partial class GptService
         PropertyNameCaseInsensitive = true
     };
 
-    static readonly Lazy<string> visualDnaSystemPrompt = new(() =>
-    {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("ShareInvest.Agency.Prompts.visual-dna-system.md")
-            ?? throw new InvalidOperationException("Embedded resource 'Prompts/visual-dna-system.md' not found.");
-
-        using var reader = new StreamReader(stream);
-
-        return reader.ReadToEnd();
-    });
 }

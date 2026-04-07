@@ -8,7 +8,7 @@
 
 		<!-- NuGet Package -->
 		<PackageId>ShareInvest.Agency</PackageId>
-		<Version>0.5.0</Version>
+		<Version>0.6.0</Version>
 		<Authors>cyberprophet</Authors>
 		<Company>ShareInvest Corp.</Company>
 		<Copyright>Copyright ⓒ 2026, ShareInvest Corp.</Copyright>
@@ -31,11 +31,7 @@
 		<None Include="analytics.png" Pack="true" PackagePath="/" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<EmbeddedResource Include="Prompts\*.md" />
-	</ItemGroup>
-
-	<ItemGroup>
+<ItemGroup>
 		<PackageReference Include="Google.GenAI" Version="1.6.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
 		<PackageReference Include="OpenAI" Version="2.10.0" />

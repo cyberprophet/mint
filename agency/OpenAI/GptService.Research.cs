@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
@@ -15,30 +14,21 @@ public partial class GptService
 {
     static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
-    static readonly Lazy<string> librarianSystemPrompt = new(() =>
-    {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("ShareInvest.Agency.Prompts.librarian-system.md")
-            ?? throw new InvalidOperationException("librarian-system.md embedded resource not found.");
-
-        using var reader = new StreamReader(stream);
-
-        return reader.ReadToEnd();
-    });
-
     /// <summary>
     /// Conducts multi-step web research on a product and returns structured market insights.
     /// Uses <see cref="WebTools"/> for provider-agnostic web search and URL fetching,
     /// driven by an OpenAI tool-calling loop.
     /// </summary>
+    /// <param name="systemPrompt">System prompt that defines the research methodology and output format.</param>
     /// <param name="productInfo">Product name or description to research.</param>
     /// <param name="urls">Reference URLs to fetch and analyze (product pages, brand sites, etc.).</param>
     /// <param name="category">Optional product category hint to guide research focus.</param>
     /// <param name="model">Chat model to use for the research agent.</param>
-    /// <param name="onUsage">Optional callback invoked with token usage after each tool-calling round.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="onUsage">Optional callback invoked with token usage after each tool-calling round.</param>
     /// <returns>Parsed <see cref="ResearchResult"/>, or <see langword="null"/> if the agent did not return valid JSON.</returns>
     public virtual async Task<ResearchResult?> ResearchProductAsync(
+        string systemPrompt,
         string productInfo,
         string[] urls,
         string? category,
@@ -98,7 +88,7 @@ public partial class GptService
 
         var messages = new List<ChatMessage>
         {
-            ChatMessage.CreateSystemMessage(librarianSystemPrompt.Value),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage(userContent.ToString())
         };
 
