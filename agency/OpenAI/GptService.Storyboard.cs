@@ -147,7 +147,7 @@ public partial class GptService
                             storyboard = AutoCorrectStoryboard(storyboard);
                         }
 
-                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, autoCorrect);
+                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, context.ForbiddenCliches, autoCorrect);
 
                         if (validationError is not null)
                         {
@@ -262,7 +262,7 @@ public partial class GptService
     /// On the final attempt (autoCorrect=true), missing image blocks are already inserted
     /// by <see cref="AutoCorrectStoryboard"/> before this method is called.
     /// </summary>
-    string? ValidateStoryboard(StoryboardResult storyboard, string targetLanguage, bool autoCorrect)
+    string? ValidateStoryboard(StoryboardResult storyboard, string targetLanguage, string[]? forbiddenCliches, bool autoCorrect)
     {
         var errors = new List<string>();
 
@@ -330,6 +330,19 @@ public partial class GptService
                     {
                         errors.Add($"[Validation Error] Generic copy in \"{section.Title}\" / {block.Type}: " +
                             $"\"{pattern}\" → {replacement}");
+                    }
+                }
+
+                // Per-product forbidden clichés from marketContext
+                if (forbiddenCliches is not null)
+                {
+                    foreach (var cliche in forbiddenCliches)
+                    {
+                        if (!string.IsNullOrWhiteSpace(cliche) && text.Contains(cliche, StringComparison.OrdinalIgnoreCase))
+                        {
+                            errors.Add($"[Validation Error] Forbidden cliché in \"{section.Title}\" / {block.Type}: " +
+                                $"\"{cliche}\" → Use product-specific language from the brief's selling points and market context");
+                        }
                     }
                 }
             }
