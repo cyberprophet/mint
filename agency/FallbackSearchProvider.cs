@@ -15,6 +15,7 @@ public class FallbackSearchProvider(ISearchProvider primary, ISearchProvider sec
         {
             return await primary.SearchAsync(query, numResults, ct);
         }
+        catch (OperationCanceledException) { throw; }
         catch
         {
             return await secondary.SearchAsync(query, numResults, ct);

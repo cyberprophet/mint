@@ -107,7 +107,6 @@ public partial class GptService
         var failedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int consecutiveFetchFailures = 0;
         int totalFetchRetries = 0;
-        var loopStopwatch = Stopwatch.StartNew();
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -151,13 +150,15 @@ public partial class GptService
                 consecutiveFetchFailures = 0; // reset so the model gets one more chance to produce JSON
             }
 
+            var iterationSw = Stopwatch.StartNew();
             var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            iterationSw.Stop();
             var completion = result.Value;
 
             if (onUsage is not null && completion.Usage is { } usage)
             {
                 onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "research",
-                    LatencyMs: (int)loopStopwatch.ElapsedMilliseconds, RetryCount: totalFetchRetries));
+                    LatencyMs: (int)iterationSw.ElapsedMilliseconds, RetryCount: totalFetchRetries));
             }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
