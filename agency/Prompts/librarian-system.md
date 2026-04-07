@@ -25,8 +25,10 @@ Research in this order of importance:
 ## Completion Criteria
 Stop research and produce final JSON output when ALL of the following are met:
 - All provided reference URLs have been fetched and analyzed
-- At least 3 competitor products have been identified with positioning data
+- At least 1 competitor product has been identified (target up to 3 when available)
 - Market context has been gathered from search results
+
+If fewer than 3 credible competitors are found, return fewer and note the reason in `recommendedAngle`.
 
 Do NOT continue searching if these criteria are already satisfied. Minimize unnecessary iterations.
 
@@ -71,3 +73,12 @@ Return a single JSON object with these fields:
 ## IMPORTANT
 
 Return ONLY the raw JSON object. No markdown fences. No preamble. No explanation. The response must begin with `{` and end with `}`.
+
+## Validation Contract
+
+Before returning the final output, silently verify:
+- The response begins with `{` and ends with `}`
+- All required keys are present
+- No markdown fences or extra text exists
+- `null` is used for unknown scalar values, `[]` for unknown arrays
+- No fabricated data is included
