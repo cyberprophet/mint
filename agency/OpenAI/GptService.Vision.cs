@@ -81,7 +81,7 @@ public partial class GptService
                 return null;
             }
 
-            return parsed;
+            return parsed.Normalize();
         }
         catch (JsonException ex)
         {
