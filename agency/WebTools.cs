@@ -39,7 +39,7 @@ public sealed partial class WebTools : IDisposable
         // to re-validate each redirect hop against the SSRF deny-list.
         _fetchClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
-            Timeout = TimeSpan.FromSeconds(30),
+            Timeout = TimeSpan.FromSeconds(10),
             MaxResponseContentBufferSize = 5 * 1024 * 1024
         };
 
@@ -168,6 +168,20 @@ public sealed partial class WebTools : IDisposable
             }
 
             break;
+        }
+
+        // Cloudflare bot detection: 403 with cf-mitigated header → retry with honest UA (P1 parity)
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden
+            && response.Headers.TryGetValues("cf-mitigated", out var cfValues)
+            && cfValues.Any(v => v.Contains("challenge", StringComparison.OrdinalIgnoreCase)))
+        {
+            response.Dispose();
+
+            using var retryRequest = new HttpRequestMessage(HttpMethod.Get, currentUri);
+            retryRequest.Headers.UserAgent.Clear();
+            retryRequest.Headers.UserAgent.ParseAdd("page-mint-agency");
+
+            response = await _fetchClient.SendAsync(retryRequest, cancellationToken);
         }
 
         using (response)
