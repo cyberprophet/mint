@@ -13,7 +13,7 @@ namespace ShareInvest.Agency;
 /// Provider-agnostic web tools for search and URL fetching.
 /// Mirrors P1 OpenCode's built-in <c>websearch</c> and <c>webfetch</c> tools.
 /// </summary>
-public sealed partial class WebTools : IDisposable
+public sealed partial class WebTools : ISearchProvider, IDisposable
 {
     readonly HttpClient _httpClient;
     readonly HttpClient _fetchClient;
