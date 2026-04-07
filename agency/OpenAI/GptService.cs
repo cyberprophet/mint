@@ -68,6 +68,8 @@ public partial class GptService : OpenAIClient
     /// <returns>A trimmed title string, or <see langword="null"/> if no usable content was returned.</returns>
     public virtual async Task<string?> GenerateTitleAsync(string systemPrompt, string conversationText, string model = "gpt-5-nano", Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+
         var chatClient = GetChatClient(model);
 
         var options = new ChatCompletionOptions

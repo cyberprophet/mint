@@ -30,6 +30,7 @@ public partial class GptService
         CancellationToken cancellationToken = default,
         Action<ApiUsageEvent>? onUsage = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentNullException.ThrowIfNull(imageBytes);
         ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
 
