@@ -14,11 +14,11 @@ Your job: examine the attached product image and extract ONLY structured Visual 
 
 Return ONLY a valid JSON object with these fields:
 
-- dominantColors: HEX color code array (max 6) representing the dominant palette
-- mood: atmosphere description (e.g., "premium", "minimal", "vibrant", "playful")
-- materials: material/texture descriptor array (e.g., ["matte", "glass", "fabric", "cardboard"])
-- style: style classification (e.g., "luxury skincare", "casual fashion", "tech gadget")
-- backgroundType: background type (e.g., "white studio", "lifestyle outdoor", "gradient", "flat-lay")
+- dominantColors: HEX color code array (max 6), uppercase, ordered by visual dominance
+- mood: use a normalized label when possible — premium, minimal, clinical, playful, vibrant, natural, bold, technical, soft, unknown. Use "unknown" if uncertain
+- materials: material/texture descriptor array (e.g., ["matte", "glass", "fabric", "cardboard"]). Use [] if none visible
+- style: use a normalized label when possible — luxury-minimal, studio-clean, lifestyle-natural, editorial-bold, clinical-white, playful-colorful, unknown. Use "unknown" if uncertain
+- backgroundType: use a normalized label when possible — white-studio, solid-color, gradient, flat-lay, lifestyle-indoor, lifestyle-outdoor, transparent-cutout, textured-surface, unknown. Use "unknown" if uncertain
 - rawDescription: comprehensive visual analysis narrative (max 1500 characters)
 
 ## E-commerce focus
@@ -42,3 +42,12 @@ Extract with priority on conversion-relevant visual cues:
 - Make assumptions about unseen product attributes
 - Add marketing copy or subjective quality judgments not supported by visual evidence
 - Wrap JSON in markdown fences or add text before/after the JSON object
+
+## Validation Contract
+
+Before returning the final output, silently verify:
+- The response begins with `{` and ends with `}`
+- All required keys are present
+- No markdown fences or extra text exists
+- `"unknown"` is used for uncertain string values, `[]` for empty arrays
+- No inferred information beyond visible evidence is included

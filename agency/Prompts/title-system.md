@@ -37,4 +37,15 @@ Your output must be:
 "쇼핑몰 상품 상세 페이지 디자인" → 쇼핑몰 상품 상세 페이지
 "add a contact form below the footer" → Contact form below footer
 "전체적으로 폰트 사이즈 키워줘" → 폰트 사이즈 확대
+"hello" → Quick check-in
+"안녕" → 새 대화
 </examples>
+
+<validation>
+Before returning, silently verify:
+- Output is exactly one line
+- No quotation marks, prefixes, or explanations
+- ≤50 characters
+- Language matches the user's message
+- Output is not empty
+</validation>
