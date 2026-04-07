@@ -62,6 +62,55 @@ public partial class GptService
         if (raw is null)
             return null;
 
+        var parsed = TryParseVisualDna(raw);
+
+        if (parsed is not null)
+            return parsed.Normalize();
+
+        // Repair attempt: send a correction prompt if original response was non-empty
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        logger.LogWarning("Visual DNA JSON parse failed — attempting repair prompt. Original (first 200): {Snippet}",
+            raw.Length > 200 ? raw[..200] : raw);
+
+        var repairMessages = new List<ChatMessage>
+        {
+            ChatMessage.CreateSystemMessage(visualDnaSystemPrompt.Value),
+            ChatMessage.CreateUserMessage(
+                ChatMessageContentPart.CreateImagePart(imageBytes, mimeType),
+                ChatMessageContentPart.CreateTextPart("Extract Visual DNA from this product image.")),
+            ChatMessage.CreateAssistantMessage(raw),
+            ChatMessage.CreateUserMessage(
+                "Your response was not valid JSON. Return ONLY a JSON object with these exact fields: " +
+                "dominantColors, mood, materials, style, backgroundType, rawDescription")
+        };
+
+        var repairSw = Stopwatch.StartNew();
+        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken);
+        repairSw.Stop();
+
+        if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)
+        {
+            onUsage(new ApiUsageEvent("openai", model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
+                "vision", LatencyMs: (int)repairSw.ElapsedMilliseconds));
+        }
+
+        var repairRaw = repairResult.Value.Content.FirstOrDefault()?.Text;
+
+        if (repairRaw is null)
+            return null;
+
+        var repaired = TryParseVisualDna(repairRaw);
+
+        if (repaired is null)
+            logger.LogWarning("Visual DNA repair attempt also failed");
+
+        return repaired?.Normalize();
+    }
+
+    VisualDnaResult? TryParseVisualDna(string raw)
+    {
         var json = StripMarkdownFences(raw);
 
         try
@@ -81,7 +130,7 @@ public partial class GptService
                 return null;
             }
 
-            return parsed.Normalize();
+            return parsed;
         }
         catch (JsonException ex)
         {
