@@ -122,14 +122,32 @@ public partial class GptService
                         var storyboard = JsonSerializer.Deserialize<StoryboardResult>(
                             toolCall.FunctionArguments.ToString(), CaseInsensitiveOptions);
 
-                        if (storyboard is null || storyboard.Sections.Length == 0)
+                        if (storyboard is null || storyboard.Sections is null || storyboard.Sections.Length == 0)
                         {
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                                 "[Validation Error] sections must contain at least one section."));
                             continue;
                         }
 
-                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, attempt >= maxRetries - 1);
+                        // Ensure no section has a null Blocks array (guard against partial deserialization)
+                        for (int i = 0; i < storyboard.Sections.Length; i++)
+                        {
+                            if (storyboard.Sections[i].Blocks is null)
+                            {
+                                messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
+                                    $"[Validation Error] Section \"{storyboard.Sections[i].Title}\" has a null blocks array. Every section must include a blocks array."));
+                                goto nextToolCall;
+                            }
+                        }
+
+                        bool autoCorrect = attempt >= maxRetries - 1;
+
+                        if (autoCorrect)
+                        {
+                            storyboard = AutoCorrectStoryboard(storyboard);
+                        }
+
+                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, autoCorrect);
 
                         if (validationError is not null)
                         {
@@ -147,6 +165,8 @@ public partial class GptService
                         messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                             $"[Parse Error] Invalid JSON: {ex.Message}. Rewrite the storyboard as valid JSON."));
                     }
+
+                    nextToolCall:;
                 }
             }
             else if (completion.FinishReason == ChatFinishReason.Stop)
@@ -207,9 +227,40 @@ public partial class GptService
     }
 
     /// <summary>
+    /// Inserts placeholder image blocks into sections that are missing them.
+    /// Mirrors the auto-correction logic from P3 save-storyboard.ts.
+    /// Returns a new <see cref="StoryboardResult"/> with corrected sections.
+    /// </summary>
+    static StoryboardResult AutoCorrectStoryboard(StoryboardResult storyboard)
+    {
+        var correctedSections = storyboard.Sections.Select(section =>
+        {
+            bool hasImage = section.Blocks.Any(b =>
+                string.Equals(b.Type, "image", StringComparison.OrdinalIgnoreCase));
+
+            if (hasImage)
+                return section;
+
+            var placeholderPrompt =
+                $"Professional product photography style scene depicting: {section.StrategicIntent}, " +
+                $"for a {section.SectionType ?? "product detail"} section titled \"{section.Title}\". " +
+                "Clean studio lighting from upper left, neutral background, centered composition with generous negative space, warm neutral color palette";
+
+            var correctedBlocks = section.Blocks
+                .Append(new StoryboardBlock("image", placeholderPrompt))
+                .ToArray();
+
+            return section with { Blocks = correctedBlocks };
+        }).ToArray();
+
+        return storyboard with { Sections = correctedSections };
+    }
+
+    /// <summary>
     /// Validates a storyboard against quality gates ported from P3 save-storyboard.ts.
     /// Returns null if valid, or an error message string if invalid.
-    /// On the final attempt (autoCorrect=true), missing image blocks get placeholders instead of failing.
+    /// On the final attempt (autoCorrect=true), missing image blocks are already inserted
+    /// by <see cref="AutoCorrectStoryboard"/> before this method is called.
     /// </summary>
     string? ValidateStoryboard(StoryboardResult storyboard, string targetLanguage, bool autoCorrect)
     {
