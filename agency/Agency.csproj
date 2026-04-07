@@ -8,7 +8,7 @@
 
 		<!-- NuGet Package -->
 		<PackageId>ShareInvest.Agency</PackageId>
-		<Version>0.5.0</Version>
+		<Version>0.6.0</Version>
 		<Authors>cyberprophet</Authors>
 		<Company>ShareInvest Corp.</Company>
 		<Copyright>Copyright ⓒ 2026, ShareInvest Corp.</Copyright>
@@ -29,10 +29,6 @@
 	<ItemGroup>
 		<None Include="../README.md" Pack="true" PackagePath="/" />
 		<None Include="analytics.png" Pack="true" PackagePath="/" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<EmbeddedResource Include="Prompts\*.md" />
 	</ItemGroup>
 
 	<ItemGroup>

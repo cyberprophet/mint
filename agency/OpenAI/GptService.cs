@@ -6,7 +6,6 @@ using OpenAI.Chat;
 using ShareInvest.Agency.Models;
 
 using System.Diagnostics;
-using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace ShareInvest.Agency.OpenAI;
@@ -61,13 +60,17 @@ public partial class GptService : OpenAIClient
     /// <summary>
     /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
     /// </summary>
+    /// <param name="systemPrompt">System prompt that defines the title generation rules and output format.</param>
     /// <param name="conversationText">The full conversation text to summarise as a title.</param>
+    /// <param name="model">Chat model to use for title generation.</param>
     /// <param name="onUsage">Optional callback invoked with token usage after the API call completes.</param>
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
     /// <returns>A trimmed title string, or <see langword="null"/> if no usable content was returned.</returns>
-    public virtual async Task<string?> GenerateTitleAsync(string conversationText, Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
+    public virtual async Task<string?> GenerateTitleAsync(string systemPrompt, string conversationText, string model = "gpt-5-nano", Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
     {
-        var chatClient = GetChatClient("gpt-5-nano");
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+
+        var chatClient = GetChatClient(model);
 
         var options = new ChatCompletionOptions
         {
@@ -75,7 +78,7 @@ public partial class GptService : OpenAIClient
         };
         var messages = new ChatMessage[]
         {
-            ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
         var sw = Stopwatch.StartNew();
@@ -84,7 +87,7 @@ public partial class GptService : OpenAIClient
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
+            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
@@ -102,7 +105,7 @@ public partial class GptService : OpenAIClient
 
         var repairMessages = new List<ChatMessage>
         {
-            ChatMessage.CreateSystemMessage(titleSystemPrompt.Value),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>"),
             ChatMessage.CreateAssistantMessage(raw),
             ChatMessage.CreateUserMessage(
@@ -115,7 +118,7 @@ public partial class GptService : OpenAIClient
 
         if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)
         {
-            onUsage(new ApiUsageEvent("openai", "gpt-5-nano", repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
+            onUsage(new ApiUsageEvent("openai", model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
                 "title", LatencyMs: (int)repairSw.ElapsedMilliseconds));
         }
 
@@ -153,14 +156,4 @@ public partial class GptService : OpenAIClient
     [GeneratedRegex(@"<think>[\s\S]*?</think>\s*")]
     private static partial Regex ThinkBlockRegex();
 
-    static readonly Lazy<string> titleSystemPrompt = new(() =>
-    {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("ShareInvest.Agency.Prompts.title-system.md")
-            ?? throw new InvalidOperationException("Embedded resource 'Prompts/title-system.md' not found.");
-
-        using var reader = new StreamReader(stream);
-
-        return reader.ReadToEnd();
-    });
 }
