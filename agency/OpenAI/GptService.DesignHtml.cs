@@ -116,7 +116,9 @@ public partial class GptService
                         html = SanitizeHtml(html);
 
                         // Gates 1-3, 6: Validate
-                        var expectedSectionCount = context.Blueprint?.VisualBlocks?.Length ?? 0;
+                        var expectedSectionCount = context.Blueprint.VisualBlocks?.Length ?? 0;
+                        if (expectedSectionCount == 0)
+                            logger.LogWarning("Blueprint has no visual blocks — section count validation (gate 6) will be skipped");
                         var validationError = ValidateDesignHtml(html, expectedSectionCount);
 
                         if (validationError is not null)
@@ -175,7 +177,7 @@ public partial class GptService
         // Gate 6: Section count >= expected
         if (expectedSectionCount > 0)
         {
-            var sectionCount = Regex.Matches(html, @"<section\b", RegexOptions.IgnoreCase).Count;
+            var sectionCount = SectionTagPattern().Matches(html).Count;
 
             if (sectionCount < expectedSectionCount)
                 return $"Expected at least {expectedSectionCount} <section> tags (one per visual block) but found {sectionCount}. Add the missing sections.";
@@ -189,9 +191,18 @@ public partial class GptService
     static string SanitizeHtml(string html)
     {
         // Gate 4: Strip <script> tags
-        html = Regex.Replace(html, @"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", "", RegexOptions.IgnoreCase);
+        html = ScriptTagPattern().Replace(html, "");
         // Gate 5: Strip on* event handlers
-        html = Regex.Replace(html, @"\s+on\w+\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]*)", "", RegexOptions.IgnoreCase);
+        html = EventHandlerPattern().Replace(html, "");
         return html;
     }
+
+    [GeneratedRegex(@"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
+    private static partial Regex ScriptTagPattern();
+
+    [GeneratedRegex(@"\s+on\w+\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]*)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
+    private static partial Regex EventHandlerPattern();
+
+    [GeneratedRegex(@"<section\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SectionTagPattern();
 }
