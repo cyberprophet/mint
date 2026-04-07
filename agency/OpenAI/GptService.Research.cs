@@ -241,7 +241,7 @@ public partial class GptService
                 if (string.IsNullOrWhiteSpace(raw))
                     return null;
 
-                return ParseResearchResult(raw);
+                return ParseResearchResult(raw, urlsWereFetched: fetchedUrls.Count > 0);
             }
             else
             {
@@ -290,7 +290,7 @@ public partial class GptService
                 return null;
             }
 
-            var parsed = ParseResearchResult(raw);
+            var parsed = ParseResearchResult(raw, urlsWereFetched: false);
 
             if (parsed is not null)
                 logger.LogInformation("Partial research result synthesized from exhausted loop");
@@ -304,7 +304,7 @@ public partial class GptService
         }
     }
 
-    ResearchResult? ParseResearchResult(string raw)
+    ResearchResult? ParseResearchResult(string raw, bool urlsWereFetched = true)
     {
         var json = raw.Trim();
 
@@ -323,7 +323,28 @@ public partial class GptService
 
         try
         {
-            return JsonSerializer.Deserialize<ResearchResult>(json, CaseInsensitiveOptions);
+            var result = JsonSerializer.Deserialize<ResearchResult>(json, CaseInsensitiveOptions);
+
+            if (result is null)
+                return null;
+
+            // Backward compat: SchemaVersion 0 means the field was absent (v1 response)
+            // Infer Basis from context if not provided by the model
+            var basis = result.Basis;
+            if (basis is null)
+                basis = urlsWereFetched ? "research" : "category_inference";
+
+            // Return a normalized record with at least schemaVersion=2 defaults
+            if (result.SchemaVersion == 0 || result.Basis is null)
+            {
+                result = result with
+                {
+                    SchemaVersion = result.SchemaVersion == 0 ? 2 : result.SchemaVersion,
+                    Basis = basis
+                };
+            }
+
+            return result;
         }
         catch (JsonException ex)
         {

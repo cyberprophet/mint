@@ -3,6 +3,7 @@ namespace ShareInvest.Agency.Models;
 /// <summary>
 /// Structured research output produced by the librarian research engine for a product.
 /// </summary>
+/// <param name="SchemaVersion">Schema version for forward-compatibility. Current version is 2; absence (0) is treated as version 1.</param>
 /// <param name="ProductData">Metadata extracted from each provided product URL.</param>
 /// <param name="CompetitorInsights">Competitor products and positioning found during market research.</param>
 /// <param name="MarketContext">Summary of category trends, demand signals, and market dynamics.</param>
@@ -11,7 +12,9 @@ namespace ShareInvest.Agency.Models;
 /// <param name="CoreValue">Single-sentence core value proposition.</param>
 /// <param name="KeySellingPoints">Concrete selling points supported by research (3–6 items).</param>
 /// <param name="RecommendedAngle">Recommended marketing angle or narrative for a landing page.</param>
+/// <param name="Basis">Data quality indicator: "research" (full web research), "category_inference" (no URLs fetched), or "partial" (some data missing).</param>
 public record ResearchResult(
+    int SchemaVersion,
     ProductData[] ProductData,
     CompetitorInsight[] CompetitorInsights,
     string? MarketContext,
@@ -19,7 +22,8 @@ public record ResearchResult(
     string? Category,
     string? CoreValue,
     string[]? KeySellingPoints,
-    string? RecommendedAngle);
+    string? RecommendedAngle,
+    string? Basis = null);
 
 /// <summary>
 /// Metadata extracted from a single product page URL.
