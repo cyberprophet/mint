@@ -51,7 +51,7 @@ public partial class GptService
                             {
                                 title = new { type = "string", description = "Section title" },
                                 strategicIntent = new { type = "string", description = "Marketing purpose of this section in the persuasion flow" },
-                                sectionType = new { type = "string", description = "Section type (e.g., hero, value, ingredients, experience, proof, cta)" },
+                                sectionType = new { type = "string", @enum = new[] { "hero", "problem", "routine", "value", "ingredients", "experience", "benefit", "proof", "trust", "summary", "cta" }, description = "Section type" },
                                 blocks = new
                                 {
                                     type = "array",
