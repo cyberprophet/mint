@@ -209,12 +209,9 @@ public partial class GptService
         }
 
         sb.AppendLine($"## Target Language: {context.TargetLanguage}");
-
-        if (context.TargetLanguage != "en")
-        {
-            sb.AppendLine($"Write all copy blocks in {context.TargetLanguage}. Image prompts must be in English only. " +
-                $"On-screen text quoted in image prompts must be in {context.TargetLanguage}.");
-        }
+        sb.AppendLine($"MANDATORY: Every heading, text, highlight, and ctaText block MUST be written in {context.TargetLanguage}. " +
+            $"Image prompts MUST be in English. On-screen text in image prompts MUST be in {context.TargetLanguage}. " +
+            $"Do NOT write copy blocks in any other language — validation will reject them.");
 
         if (!string.IsNullOrEmpty(context.Feedback))
         {
@@ -395,6 +392,38 @@ public partial class GptService
                             errors.Add($"[Validation Error] On-screen text language mismatch in \"{section.Title}\": " +
                                 $"\"{fragment}\" → Rewrite in {langName}.");
                         }
+                    }
+                }
+            }
+        }
+
+        // 7. Copy block language validation — reject if copy is in wrong language
+        if (!string.IsNullOrEmpty(targetLanguage) && targetLanguage != "en")
+        {
+            foreach (var section in storyboard.Sections)
+            {
+                foreach (var block in section.Blocks)
+                {
+                    if (string.Equals(block.Type, "image", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var text = block.Content.Trim();
+                    if (text.Length < 10)
+                        continue;
+
+                    // Check if copy block is primarily Latin (English) when it should be non-English
+                    var latinRatio = 1.0 - NonLatinRatio(text);
+                    if (latinRatio > 0.8)
+                    {
+                        var langName = targetLanguage switch
+                        {
+                            "ko" => "Korean",
+                            "ja" => "Japanese",
+                            "zh" => "Chinese",
+                            _ => targetLanguage
+                        };
+                        errors.Add($"[Validation Error] Copy block in \"{section.Title}\" appears to be in English " +
+                            $"but target language is {langName}. Rewrite in {langName}: \"{text[..Math.Min(50, text.Length)]}...\"");
                     }
                 }
             }
