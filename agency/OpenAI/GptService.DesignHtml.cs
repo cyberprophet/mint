@@ -197,10 +197,10 @@ public partial class GptService
         return html;
     }
 
-    [GeneratedRegex(@"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
+    [GeneratedRegex(@"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", RegexOptions.IgnoreCase)]
     private static partial Regex ScriptTagPattern();
 
-    [GeneratedRegex(@"\s+on\w+\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]*)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
+    [GeneratedRegex(@"\s+on\w+\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]*)", RegexOptions.IgnoreCase)]
     private static partial Regex EventHandlerPattern();
 
     [GeneratedRegex(@"<section\b", RegexOptions.IgnoreCase)]
