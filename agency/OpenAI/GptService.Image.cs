@@ -18,7 +18,7 @@ public partial class GptService
     /// </summary>
     /// <typeparam name="T">The type to cast the image bytes to (e.g., <see cref="BinaryData"/>).</typeparam>
     /// <param name="request">Parameters describing the image to generate, including prompt, aspect ratio, and quality.</param>
-    /// <param name="onUsage">Optional callback invoked after successful image generation for audit purposes (token counts are 0 as the image API does not report token usage).</param>
+    /// <param name="onUsage">Optional callback invoked after successful image generation for audit purposes.</param>
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
     /// <returns>The generated image bytes cast to <typeparamref name="T"/>, or <see langword="null"/> if the cast fails.</returns>
     /// <exception cref="ImageGenerationModerationException">Thrown when OpenAI's safety system rejects the request.</exception>
@@ -34,20 +34,24 @@ public partial class GptService
             Quality = request.Quality ?? GeneratedImageQuality.HighQuality,
             OutputFileFormat = GeneratedImageFileFormat.Png,
         };
-        ClientResult<GeneratedImage> result;
+        ClientResult<GeneratedImageCollection> result;
 
         try
         {
             var sw = Stopwatch.StartNew();
-            result = await imageClient.GenerateImageAsync(request.Prompt, options, cancellationToken);
+            result = await imageClient.GenerateImagesAsync(request.Prompt, 1, options, cancellationToken);
             sw.Stop();
 
             if (onUsage is not null)
             {
-                onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1", 0, 0, "image", LatencyMs: (int)sw.ElapsedMilliseconds));
+                var usage = result.Value.Usage;
+                onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1",
+                    (int)(usage?.InputTokenCount ?? 0),
+                    (int)(usage?.OutputTokenCount ?? 0),
+                    "image", LatencyMs: (int)sw.ElapsedMilliseconds));
             }
 
-            return result.Value.ImageBytes as T;
+            return result.Value[0].ImageBytes as T;
         }
         catch (ClientResultException ex) when (ex.Status == 400)
         {
