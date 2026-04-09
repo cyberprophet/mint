@@ -429,6 +429,24 @@ public partial class GptService
             }
         }
 
+        // 8. Required sections — faq and spec-table must exist
+        var sectionTypes = storyboard.Sections
+            .Where(s => !string.IsNullOrEmpty(s.SectionType))
+            .Select(s => s.SectionType!.ToLowerInvariant())
+            .ToHashSet();
+
+        if (!sectionTypes.Contains("faq"))
+        {
+            errors.Add("[Validation Error] Missing required section: \"faq\". " +
+                "Every storyboard MUST include a FAQ section with at least 3 Q&A pairs addressing common purchase anxieties.");
+        }
+
+        if (!sectionTypes.Contains("spec-table"))
+        {
+            errors.Add("[Validation Error] Missing required section: \"spec-table\". " +
+                "Every storyboard for a physical product MUST include a spec-table section with measurable specifications.");
+        }
+
         return errors.Count > 0 ? string.Join("\n", errors) : null;
     }
 
