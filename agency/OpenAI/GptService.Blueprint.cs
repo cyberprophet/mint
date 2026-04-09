@@ -173,7 +173,7 @@ public partial class GptService
         return sb.ToString();
     }
 
-    // ─── Blueprint Validation (12 gates) ──────────────────────────
+    // ─── Blueprint Validation (15 gates) ──────────────────────────
 
     string? ValidateBlueprint(BlueprintResult blueprint)
     {
@@ -331,6 +331,38 @@ public partial class GptService
             // Non-blocking: return null (valid) but log warning
             logger.LogWarning("Blueprint has {Percent}% blocks with designOverrides — consider using pageDesignSystem more",
                 Math.Round(overrideRatio * 100));
+        }
+
+        // Gate 14: Block type diversity
+        var blockTypeCounts = blocks
+            .GroupBy(b => b.BlockType)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var uniqueTypes = blockTypeCounts.Count;
+
+        if (blocks.Length >= 8 && uniqueTypes < 5)
+            errors.Add($"Page has {blocks.Length} blocks but only {uniqueTypes} unique blockTypes (need ≥5). Vary block types for visual diversity.");
+        else if (blocks.Length >= 5 && uniqueTypes < 4)
+            errors.Add($"Page has {blocks.Length} blocks but only {uniqueTypes} unique blockTypes (need ≥4). Vary block types for visual diversity.");
+
+        // No single non-hero/CTA type > 30%
+        foreach (var kvp in blockTypeCounts)
+        {
+            if (kvp.Key is "hero" or "offer-reassurance-sticky") continue;
+            if (blocks.Length > 0 && (double)kvp.Value / blocks.Length > 0.3)
+                errors.Add($"blockType \"{kvp.Key}\" appears {kvp.Value}/{blocks.Length} times (>30%). Use different block types for variety.");
+        }
+
+        // Gate 15: No repeated layoutVariant for same blockType
+        var variantsByType = blocks
+            .GroupBy(b => b.BlockType)
+            .Where(g => g.Count() > 1);
+
+        foreach (var group in variantsByType)
+        {
+            var variants = group.Select(b => b.LayoutVariant).ToList();
+            var duplicates = variants.GroupBy(v => v).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (duplicates.Count > 0)
+                errors.Add($"blockType \"{group.Key}\" reuses layoutVariant \"{string.Join(", ", duplicates)}\". Use different variants when repeating a blockType.");
         }
 
         return errors.Count > 0 ? string.Join("\n", errors) : null;
