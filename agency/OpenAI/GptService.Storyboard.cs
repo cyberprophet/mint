@@ -147,7 +147,7 @@ public partial class GptService
                             storyboard = AutoCorrectStoryboard(storyboard);
                         }
 
-                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, context.ForbiddenCliches, autoCorrect);
+                        var validationError = ValidateStoryboard(storyboard, context.TargetLanguage, context.ForbiddenCliches, context.ProductType, autoCorrect);
 
                         if (validationError is not null)
                         {
@@ -259,7 +259,7 @@ public partial class GptService
     /// On the final attempt (autoCorrect=true), missing image blocks are already inserted
     /// by <see cref="AutoCorrectStoryboard"/> before this method is called.
     /// </summary>
-    string? ValidateStoryboard(StoryboardResult storyboard, string targetLanguage, string[]? forbiddenCliches, bool autoCorrect)
+    string? ValidateStoryboard(StoryboardResult storyboard, string targetLanguage, string[]? forbiddenCliches, string? productType, bool autoCorrect)
     {
         var errors = new List<string>();
 
@@ -429,7 +429,7 @@ public partial class GptService
             }
         }
 
-        // 8. Required sections — faq and spec-table must exist
+        // 8. Required sections — faq (always) and spec-table (physical products only)
         var sectionTypes = storyboard.Sections
             .Where(s => !string.IsNullOrEmpty(s.SectionType))
             .Select(s => s.SectionType!.ToLowerInvariant())
@@ -441,7 +441,7 @@ public partial class GptService
                 "Every storyboard MUST include a FAQ section with at least 3 Q&A pairs addressing common purchase anxieties.");
         }
 
-        if (!sectionTypes.Contains("spec-table"))
+        if (!sectionTypes.Contains("spec-table") && !IsDigitalProduct(productType))
         {
             errors.Add("[Validation Error] Missing required section: \"spec-table\". " +
                 "Every storyboard for a physical product MUST include a spec-table section with measurable specifications.");
@@ -451,6 +451,25 @@ public partial class GptService
     }
 
     // --- Validation helpers ---
+
+    static bool IsDigitalProduct(string? productType)
+    {
+        if (string.IsNullOrWhiteSpace(productType))
+            return false;
+
+        var lower = productType.ToLowerInvariant();
+
+        // Digital/service keywords — exempt from spec-table requirement
+        string[] digitalKeywords =
+        [
+            "구독", "subscription", "saas", "software", "앱", "app",
+            "서비스", "service", "디지털", "digital", "온라인", "online",
+            "강의", "course", "전자책", "ebook", "e-book",
+            "멤버십", "membership", "라이선스", "license"
+        ];
+
+        return digitalKeywords.Any(k => lower.Contains(k));
+    }
 
     static string StripExemptText(string text)
     {
