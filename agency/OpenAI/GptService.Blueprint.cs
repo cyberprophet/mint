@@ -326,11 +326,24 @@ public partial class GptService
                 || !string.IsNullOrEmpty(b.DesignOverrides.TypographyScale)));
         var overrideRatio = blocks.Length > 0 ? (double)overrideCount / blocks.Length : 0;
 
-        if (overrideRatio > 0.4 && errors.Count == 0)
+        if (overrideRatio > 0.7 && errors.Count == 0)
         {
             // Non-blocking: return null (valid) but log warning
             logger.LogWarning("Blueprint has {Percent}% blocks with designOverrides — consider using pageDesignSystem more",
                 Math.Round(overrideRatio * 100));
+        }
+
+        // Gate 13: Background cycling — soft warning
+        var backgroundApproaches = blocks
+            .Select(b => b.DesignOverrides?.BackgroundApproach)
+            .ToArray();
+
+        var blocksWithBackground = backgroundApproaches.Count(b => !string.IsNullOrWhiteSpace(b));
+        if (blocks.Length >= 6 && blocksWithBackground < blocks.Length / 2)
+        {
+            logger.LogWarning(
+                "Blueprint has only {Count}/{Total} blocks with backgroundApproach specified — professional pages need background cycling for visual rhythm",
+                blocksWithBackground, blocks.Length);
         }
 
         return errors.Count > 0 ? string.Join("\n", errors) : null;
