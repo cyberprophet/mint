@@ -51,7 +51,7 @@ public partial class GptService
                             {
                                 title = new { type = "string", description = "Section title" },
                                 strategicIntent = new { type = "string", description = "Marketing purpose of this section in the persuasion flow" },
-                                sectionType = new { type = "string", @enum = new[] { "hero", "problem", "routine", "value", "ingredients", "experience", "benefit", "proof", "trust", "summary", "cta" }, description = "Section type" },
+                                sectionType = new { type = "string", @enum = new[] { "hero", "problem", "routine", "value", "ingredients", "experience", "benefit", "proof", "trust", "summary", "cta", "faq", "spec-table", "how-to-use", "certification" }, description = "Section type" },
                                 blocks = new
                                 {
                                     type = "array",
@@ -78,7 +78,7 @@ public partial class GptService
 
         var options = new ChatCompletionOptions
         {
-            MaxOutputTokenCount = 8192,
+            MaxOutputTokenCount = 12288,
             Temperature = 0.3f
         };
         options.Tools.Add(saveStoryboardTool);
