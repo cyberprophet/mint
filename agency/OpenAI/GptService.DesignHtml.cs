@@ -129,6 +129,23 @@ public partial class GptService
                             continue;
                         }
 
+                        // Gate 7: Center-alignment overuse (non-blocking warning)
+                        var sectionTotal = SectionTagPattern().Matches(html).Count;
+                        if (sectionTotal > 0)
+                        {
+                            var centerCount = TextCenterPattern().Matches(html).Count;
+                            var ratio = (double)centerCount / sectionTotal;
+
+                            if (ratio > 1.5)
+                            {
+                                var pct = (int)Math.Round(ratio * 100);
+                                logger.LogWarning(
+                                    "Gate 7: Design has {CenterCount} text-center occurrences across {SectionTotal} sections ({Pct}% ratio). " +
+                                    "Professional pages left-align body text — center-alignment overuse is an AI-generated design tell.",
+                                    centerCount, sectionTotal, pct);
+                            }
+                        }
+
                         return new DesignHtmlResult(html, totalTokens, attempt + 1);
                     }
                     catch (JsonException ex)
@@ -205,4 +222,7 @@ public partial class GptService
 
     [GeneratedRegex(@"<section\b", RegexOptions.IgnoreCase)]
     private static partial Regex SectionTagPattern();
+
+    [GeneratedRegex(@"\btext-center\b")]
+    private static partial Regex TextCenterPattern();
 }

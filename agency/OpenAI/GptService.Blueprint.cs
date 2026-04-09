@@ -320,9 +320,10 @@ public partial class GptService
         }
 
         // Gate 12: Override abuse warning (non-blocking, appended as hint)
+        // BackgroundApproach is excluded: Gate 13 specifically encourages background cycling,
+        // so counting it here would contradict that guidance.
         var overrideCount = blocks.Count(b => b.DesignOverrides is not null
             && (!string.IsNullOrEmpty(b.DesignOverrides.Mood)
-                || !string.IsNullOrEmpty(b.DesignOverrides.BackgroundApproach)
                 || !string.IsNullOrEmpty(b.DesignOverrides.TypographyScale)));
         var overrideRatio = blocks.Length > 0 ? (double)overrideCount / blocks.Length : 0;
 
@@ -331,6 +332,15 @@ public partial class GptService
             // Non-blocking: return null (valid) but log warning
             logger.LogWarning("Blueprint has {Percent}% blocks with designOverrides — consider using pageDesignSystem more",
                 Math.Round(overrideRatio * 100));
+        }
+
+        // Gate 13: Background cycling — soft warning when too few blocks specify a backgroundApproach.
+        var blocksWithBackground = blocks.Count(b => !string.IsNullOrWhiteSpace(b.DesignOverrides?.BackgroundApproach));
+        if (blocks.Length >= 6 && blocksWithBackground * 2 < blocks.Length)
+        {
+            logger.LogWarning(
+                "Blueprint has only {Count}/{Total} blocks with backgroundApproach specified — professional pages need background cycling for visual rhythm",
+                blocksWithBackground, blocks.Length);
         }
 
         // Gate 14: Block type diversity
