@@ -354,12 +354,15 @@ public partial class GptService
         else if (blocks.Length >= 5 && uniqueTypes < 4)
             errors.Add($"Page has {blocks.Length} blocks but only {uniqueTypes} unique blockTypes (need ≥4). Vary block types for visual diversity.");
 
-        // No single non-hero/CTA type > 30%
-        foreach (var kvp in blockTypeCounts)
+        // No single non-hero/CTA type > 30% (only for pages with 5+ blocks where the cap is satisfiable)
+        if (blocks.Length >= 5)
         {
-            if (kvp.Key is "hero" or "offer-reassurance-sticky") continue;
-            if (blocks.Length > 0 && (double)kvp.Value / blocks.Length > 0.3)
-                errors.Add($"blockType \"{kvp.Key}\" appears {kvp.Value}/{blocks.Length} times (>30%). Use different block types for variety.");
+            foreach (var kvp in blockTypeCounts)
+            {
+                if (kvp.Key is "hero" or "offer-reassurance-sticky") continue;
+                if ((double)kvp.Value / blocks.Length > 0.3)
+                    errors.Add($"blockType \"{kvp.Key}\" appears {kvp.Value}/{blocks.Length} times (>30%). Use different block types for variety.");
+            }
         }
 
         // Gate 15: No repeated layoutVariant for same blockType
