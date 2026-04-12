@@ -13,7 +13,7 @@ namespace ShareInvest.Agency.OpenAI;
 /// <summary>
 /// Partial class inheriting <see cref="OpenAIClient"/> that provides GPT-based AI services, including title generation and image generation.
 /// </summary>
-public partial class GptService : OpenAIClient
+public partial class GptService : OpenAIClient, IDisposable
 {
     /// <summary>
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger and API key.
@@ -23,6 +23,7 @@ public partial class GptService : OpenAIClient
     public GptService(ILogger<GptService> logger, string apiKey) : base(apiKey)
     {
         this.logger = logger;
+        webTools = new WebTools();
     }
 
     /// <summary>
@@ -35,6 +36,7 @@ public partial class GptService : OpenAIClient
     {
         this.logger = logger;
         this.imageModel = imageModel;
+        webTools = new WebTools();
     }
 
     /// <summary>
@@ -55,7 +57,7 @@ public partial class GptService : OpenAIClient
 
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
-    readonly WebTools webTools = new();
+    readonly WebTools webTools;
 
     /// <summary>
     /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
@@ -133,6 +135,12 @@ public partial class GptService : OpenAIClient
             logger.LogWarning("Title repair attempt also returned empty result");
 
         return repairedTitle;
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        webTools.Dispose();
     }
 
     static string? CleanTitleResponse(string raw)
