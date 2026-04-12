@@ -298,7 +298,7 @@ public partial class GptService
         }
     }
 
-    ResearchResult? ParseResearchResult(string raw, bool urlsWereFetched = true)
+    internal ResearchResult? ParseResearchResult(string raw, bool urlsWereFetched = true)
     {
         var json = raw.Trim();
 

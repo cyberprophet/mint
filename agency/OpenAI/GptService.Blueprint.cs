@@ -175,7 +175,7 @@ public partial class GptService
 
     // ─── Blueprint Validation (15 gates) ──────────────────────────
 
-    string? ValidateBlueprint(BlueprintResult blueprint)
+    internal string? ValidateBlueprint(BlueprintResult blueprint)
     {
         var errors = new List<string>();
         var pds = blueprint.PageDesignSystem;
