@@ -18,6 +18,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
     readonly HttpClient _httpClient;
     readonly HttpClient _fetchClient;
     readonly Uri _exaEndpoint;
+    readonly string? _exaApiKey;
 
     const int MaxRedirects = 5;
 
@@ -25,9 +26,9 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
     /// Initializes a new <see cref="WebTools"/> instance.
     /// </summary>
     /// <param name="exaApiKey">
-    /// Optional Exa API key. When provided, requests are authenticated via
-    /// <c>?exaApiKey={key}</c> query parameter. When <see langword="null"/>,
-    /// requests are sent without authentication (matches P1 OpenCode behavior).
+    /// Optional Exa API key. When provided, requests are authenticated via the
+    /// <c>x-api-key</c> HTTP header. When <see langword="null"/>, requests are
+    /// sent without authentication (matches P1 OpenCode behavior).
     /// </param>
     public WebTools(string? exaApiKey = null)
     {
@@ -51,9 +52,8 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
         _fetchClient.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
-        _exaEndpoint = string.IsNullOrEmpty(exaApiKey)
-            ? new Uri("https://mcp.exa.ai/mcp")
-            : new Uri($"https://mcp.exa.ai/mcp?exaApiKey={Uri.EscapeDataString(exaApiKey)}");
+        _exaEndpoint = new Uri("https://mcp.exa.ai/mcp");
+        _exaApiKey = string.IsNullOrEmpty(exaApiKey) ? null : exaApiKey;
     }
 
     /// <summary>
@@ -100,6 +100,9 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
         };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        if (_exaApiKey is not null)
+            request.Headers.TryAddWithoutValidation("x-api-key", _exaApiKey);
 
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
