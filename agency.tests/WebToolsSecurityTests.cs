@@ -33,5 +33,20 @@ public class WebToolsSecurityTests : IDisposable
         tools.Dispose(); // Must not throw
     }
 
+    /// <summary>
+    /// Verifies that a hostname which cannot be resolved via DNS is blocked rather than
+    /// allowed through. This guards against DNS rebinding and resolution-failure SSRF bypasses.
+    /// Before the fix, a catch block returned false (allow); it must now return true (block).
+    /// </summary>
+    [Theory]
+    [InlineData("http://this-hostname-does-not-exist.invalid/path")]
+    [InlineData("https://unresolvable-ssrf-test-host.example.invalid/")]
+    public async Task FetchAsync_BlocksUnresolvableHostname(string url)
+    {
+        // An unresolvable hostname must be treated as private/blocked, not allowed through.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
     public void Dispose() => _webTools.Dispose();
 }

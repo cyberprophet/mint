@@ -273,7 +273,9 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
         }
         catch
         {
-            // DNS resolution failure — allow request to proceed and let HttpClient handle the error
+            // DNS resolution failure — treat as private/blocked for safety.
+            // If DNS can't resolve, we shouldn't allow the request to proceed unchecked.
+            return true;
         }
 
         return false;
