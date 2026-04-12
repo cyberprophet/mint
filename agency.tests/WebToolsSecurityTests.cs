@@ -72,11 +72,15 @@ public class WebToolsSecurityTests : IDisposable
     [Fact]
     public async Task FetchAsync_Blocks_0_0_0_0()
     {
-        // 0.0.0.0 is an unspecified address — .NET rejects it at the socket layer
-        // (ArgumentException wrapped in HttpRequestException) before IsPrivateHostAsync
-        // can classify it, so we accept any exception to verify the request is blocked.
-        await Assert.ThrowsAnyAsync<Exception>(() =>
+        // 0.0.0.0 is blocked by IsPrivateHostAsync (IPAddress.None / unspecified).
+        // On some platforms .NET's socket layer may reject it first with
+        // HttpRequestException wrapping ArgumentException, so we accept either.
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
             _webTools.FetchAsync("http://0.0.0.0/secret", TestContext.Current.CancellationToken));
+
+        Assert.True(
+            ex is InvalidOperationException || ex is HttpRequestException,
+            $"Expected InvalidOperationException or HttpRequestException, got {ex.GetType().Name}");
     }
 
     // ── IPv6 loopback and link-local ──────────────────────────────────────────
