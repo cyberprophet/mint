@@ -95,6 +95,11 @@ public partial class GptService
         };
 
         const int maxIterations = 10;
+        // Hard cap on total tool-result size sent back to the model.
+        // WebTools.FetchAsync truncates MainText to 8 000 chars, but ToPromptText() prepends
+        // metadata and JSON-LD blocks that can add several thousand characters on top.
+        // Capping the combined output keeps each tool message within a predictable token budget.
+        const int MaxToolResultChars = 8_000;
         var fetchedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int consecutiveFetchFailures = 0;
@@ -193,7 +198,10 @@ public partial class GptService
                                     break;
                                 }
                                 var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken);
-                                toolResult2 = fetchResult.ToPromptText();
+                                var promptText = fetchResult.ToPromptText();
+                                toolResult2 = promptText.Length > MaxToolResultChars
+                                    ? promptText[..MaxToolResultChars] + "\n[truncated]"
+                                    : promptText;
                                 consecutiveFetchFailures = 0; // fetch success resets budget
                                 break;
 
