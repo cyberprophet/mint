@@ -65,38 +65,48 @@ public class FetchResultPromptTextTests
 
     // ─── Truncation at MaxToolResultChars ─────────────────────────────────────
 
+    private const string TruncationMarker = "\n[truncated]";
+
+    // Mirrors the production truncation in GptService.Research.cs.
+    // Keep this in sync with that implementation until the logic is
+    // extracted into a shared helper (tracked as follow-up to PR #57).
+    private static string Truncate(string promptText)
+    {
+        if (promptText.Length <= MaxToolResultChars)
+        {
+            return promptText;
+        }
+        var sliceLength = MaxToolResultChars - TruncationMarker.Length;
+        return promptText[..sliceLength] + TruncationMarker;
+    }
+
     [Fact]
     public void ToPromptText_ShortResult_IsNotTruncated()
     {
         var result = MakeFetchResult(new string('x', 100));
 
         var raw = result.ToPromptText();
-        var toolResult = raw.Length > MaxToolResultChars
-            ? raw[..MaxToolResultChars] + "\n[truncated]"
-            : raw;
+        var toolResult = Truncate(raw);
 
         Assert.DoesNotContain("[truncated]", toolResult);
         Assert.Equal(raw, toolResult);
     }
 
     [Fact]
-    public void ToPromptText_LongResult_IsTruncatedAtMaxChars()
+    public void ToPromptText_LongResult_IsTruncatedAtHardCap()
     {
-        // Build a result whose ToPromptText output exceeds MaxToolResultChars
         var result = MakeFetchResult(new string('x', MaxToolResultChars));
 
         var raw = result.ToPromptText();
-
-        // raw includes header lines + mainText, so it will exceed MaxToolResultChars
         Assert.True(raw.Length > MaxToolResultChars,
-            "Test pre-condition: raw output must exceed the cap for this test to be meaningful");
+            "Test pre-condition: raw output must exceed the cap");
 
-        var toolResult = raw.Length > MaxToolResultChars
-            ? raw[..MaxToolResultChars] + "\n[truncated]"
-            : raw;
+        var toolResult = Truncate(raw);
 
-        Assert.EndsWith("\n[truncated]", toolResult);
-        Assert.Equal(MaxToolResultChars + "\n[truncated]".Length, toolResult.Length);
+        Assert.EndsWith(TruncationMarker, toolResult);
+        // Hard cap: final string length must never exceed MaxToolResultChars,
+        // including the truncation marker — previously off by marker.Length.
+        Assert.Equal(MaxToolResultChars, toolResult.Length);
     }
 
     [Fact]
@@ -118,12 +128,11 @@ public class FetchResultPromptTextTests
         Assert.True(raw.Length > MaxToolResultChars,
             "Test pre-condition: raw output must exceed the cap");
 
-        var toolResult = raw.Length > MaxToolResultChars
-            ? raw[..MaxToolResultChars] + "\n[truncated]"
-            : raw;
+        var toolResult = Truncate(raw);
 
-        Assert.True(toolResult.Length <= MaxToolResultChars + "\n[truncated]".Length);
-        Assert.EndsWith("\n[truncated]", toolResult);
+        Assert.True(toolResult.Length <= MaxToolResultChars,
+            "Hard cap must include marker length");
+        Assert.EndsWith(TruncationMarker, toolResult);
     }
 
     [Fact]

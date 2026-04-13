@@ -199,9 +199,16 @@ public partial class GptService
                                 }
                                 var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken);
                                 var promptText = fetchResult.ToPromptText();
-                                toolResult2 = promptText.Length > MaxToolResultChars
-                                    ? promptText[..MaxToolResultChars] + "\n[truncated]"
-                                    : promptText;
+                                if (promptText.Length > MaxToolResultChars)
+                                {
+                                    const string TruncationMarker = "\n[truncated]";
+                                    var sliceLength = MaxToolResultChars - TruncationMarker.Length;
+                                    toolResult2 = promptText[..sliceLength] + TruncationMarker;
+                                }
+                                else
+                                {
+                                    toolResult2 = promptText;
+                                }
                                 consecutiveFetchFailures = 0; // fetch success resets budget
                                 break;
 
