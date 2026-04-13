@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace ShareInvest.Agency.OpenAI;
 
 /// <summary>
@@ -5,20 +7,34 @@ namespace ShareInvest.Agency.OpenAI;
 /// Wraps input in XML-like delimiters so the model treats it as data,
 /// not as instructions (prompt-injection defence — S-12).
 /// </summary>
-internal static class PromptSanitizer
+internal static partial class PromptSanitizer
 {
-    /// <summary>Maximum number of characters allowed before the input is truncated.</summary>
-    internal const int MaxInputLength = 8_000;
+    /// <summary>
+    /// Maximum number of characters allowed before the input is truncated.
+    /// Set high enough (100 KB) that legitimate serialized JSON payloads are never affected.
+    /// </summary>
+    internal const int MaxInputLength = 100_000;
 
     private const string OpenTag  = "<user_input>";
     private const string CloseTag = "</user_input>";
 
-    // Escape sequence used to neutralise any literal closing tag inside user text.
-    private const string EscapedCloseTag = "<\u200Buser_input>";   // zero-width space breaks the tag
+    // Escape sequences used to neutralise embedded delimiter tags inside user text.
+    // HTML entity encoding is used so that neither escape string contains an angle-bracket
+    // sequence that could be matched (literally or under Unicode collation) as a real tag.
+    private const string EscapedOpenTag  = "&lt;user_input&gt;";
+    private const string EscapedCloseTag = "&lt;/user_input&gt;";
+
+    // Matches <user_input> with optional whitespace before '>' — e.g. "<user_input >" or "<user_input\t>"
+    [GeneratedRegex(@"<user_input\s*>", RegexOptions.Compiled)]
+    private static partial Regex OpenTagVariantsRegex();
+
+    // Matches </user_input> with optional whitespace before '>' — e.g. "</user_input >" or "</user_input\t>"
+    [GeneratedRegex(@"</user_input\s*>", RegexOptions.Compiled)]
+    private static partial Regex CloseTagVariantsRegex();
 
     /// <summary>
     /// Wraps <paramref name="userInput"/> in <c>&lt;user_input&gt;…&lt;/user_input&gt;</c>
-    /// delimiters after escaping any embedded closing tag and truncating overlong input.
+    /// delimiters after escaping any embedded delimiter tags and truncating overlong input.
     /// Returns an empty-tagged string for <see langword="null"/> or whitespace input.
     /// </summary>
     /// <param name="userInput">Raw text supplied by (or derived from) the end user.</param>
@@ -29,12 +45,18 @@ internal static class PromptSanitizer
             return $"{OpenTag}{CloseTag}";
 
         // 1. Truncate to prevent prompt bloat / context exhaustion.
+        //    MaxInputLength is set to 100 KB so normal JSON payloads are never affected.
         var text = userInput.Length > MaxInputLength
             ? userInput[..MaxInputLength] + " [truncated]"
             : userInput;
 
-        // 2. Escape any literal </user_input> that would break the delimiter.
-        text = text.Replace(CloseTag, EscapedCloseTag, StringComparison.Ordinal);
+        // 2. Escape any closing-tag variants (e.g. </user_input>, </user_input >, </user_input\t>)
+        //    that could break out of the delimiter.
+        text = CloseTagVariantsRegex().Replace(text, EscapedCloseTag);
+
+        // 3. Escape any opening-tag variants (e.g. <user_input>, <user_input >) to prevent
+        //    the model from seeing a nested/duplicate opening delimiter in user content.
+        text = OpenTagVariantsRegex().Replace(text, EscapedOpenTag);
 
         return $"{OpenTag}{text}{CloseTag}";
     }

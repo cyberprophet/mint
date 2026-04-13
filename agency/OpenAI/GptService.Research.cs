@@ -85,7 +85,7 @@ public partial class GptService
             userContent.Append("\n\nReference URLs to analyze:");
 
             for (int i = 0; i < urls.Length; i++)
-                userContent.Append($"\n{i + 1}. {urls[i]}");
+                userContent.Append($"\n{i + 1}. {PromptSanitizer.EscapeForPrompt(urls[i])}");
         }
 
         var messages = new List<ChatMessage>
