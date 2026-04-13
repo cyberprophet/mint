@@ -4,6 +4,8 @@ public class WebToolsSecurityTests : IDisposable
 {
     readonly WebTools _webTools = new();
 
+    // ── Existing: scheme + localhost ─────────────────────────────────────────
+
     [Theory]
     [InlineData("http://localhost/secret")]
     [InlineData("http://127.0.0.1/secret")]
@@ -16,6 +18,8 @@ public class WebToolsSecurityTests : IDisposable
             _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
     }
 
+    // ── Existing: malformed URLs ──────────────────────────────────────────────
+
     [Theory]
     [InlineData("not-a-url")]
     [InlineData("")]
@@ -25,6 +29,112 @@ public class WebToolsSecurityTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
     }
+
+    // ── Private IPv4 ranges ───────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("http://10.0.0.1/secret")]
+    [InlineData("http://10.255.255.255/internal")]
+    public async Task FetchAsync_Blocks_10_0_0_0_Slash8_Range(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("http://172.16.0.1/secret")]
+    [InlineData("http://172.31.255.255/internal")]
+    public async Task FetchAsync_Blocks_172_16_0_0_Slash12_Range(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("http://192.168.0.1/secret")]
+    [InlineData("http://192.168.1.1/router")]
+    [InlineData("http://192.168.255.255/internal")]
+    public async Task FetchAsync_Blocks_192_168_0_0_Slash16_Range(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("http://169.254.169.254/latest/meta-data/")]
+    [InlineData("http://169.254.0.1/")]
+    public async Task FetchAsync_Blocks_169_254_0_0_CloudMetadata(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task FetchAsync_Blocks_0_0_0_0()
+    {
+        // Two legitimate guard paths exist across runtimes/platforms:
+        //
+        //   Path A — IsPrivateHostAsync resolves 0.0.0.0 to bytes [0,0,0,0],
+        //   matches the bytes[0]==0 branch, and throws InvalidOperationException
+        //   with the "private/internal" message before any network I/O.
+        //
+        //   Path B — On runtimes where Dns.GetHostAddressesAsync rejects the
+        //   unspecified address before returning (throwOnIIPAny path, .NET 9+),
+        //   the ArgumentException is swallowed by IsPrivateHostAsync's catch block;
+        //   the request is forwarded and the socket layer throws HttpRequestException
+        //   wrapping ArgumentException about the unspecified address.
+        //
+        // Both outcomes confirm 0.0.0.0 cannot be reached. Any other exception
+        // (e.g. a SocketException from a real connection attempt) would indicate
+        // the guard failed, so we assert the exact accepted set below.
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
+            _webTools.FetchAsync("http://0.0.0.0/secret", TestContext.Current.CancellationToken));
+
+        var isGuardFired = ex is InvalidOperationException ioe
+            && ioe.Message.Contains("private", StringComparison.OrdinalIgnoreCase);
+
+        var isSocketRejected = ex is HttpRequestException hre
+            && hre.InnerException is ArgumentException ae
+            && ae.Message.Contains("unspecified", StringComparison.OrdinalIgnoreCase);
+
+        Assert.True(
+            isGuardFired || isSocketRejected,
+            $"Expected SSRF guard (InvalidOperationException containing 'private') or socket-layer " +
+            $"rejection (HttpRequestException wrapping ArgumentException containing 'unspecified'), " +
+            $"but got: {ex.GetType().Name}: {ex.Message}");
+    }
+
+    // ── IPv6 loopback and link-local ──────────────────────────────────────────
+
+    [Theory]
+    [InlineData("http://[::1]/secret")]
+    public async Task FetchAsync_Blocks_IPv6_Loopback(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("http://[fe80::1]/secret")]
+    [InlineData("http://[fe80::1%2510]/secret")]
+    public async Task FetchAsync_Blocks_IPv6_LinkLocal(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    // ── Additional blocked URI schemes ───────────────────────────────────────
+
+    [Theory]
+    [InlineData("data:text/html,<h1>hello</h1>")]
+    [InlineData("gopher://evil.example.com/")]
+    public async Task FetchAsync_Blocks_NonHttpSchemes(string url)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _webTools.FetchAsync(url, TestContext.Current.CancellationToken));
+    }
+
+    // ── Dispose ───────────────────────────────────────────────────────────────
 
     [Fact]
     public void WebTools_Dispose_DoesNotThrow()
