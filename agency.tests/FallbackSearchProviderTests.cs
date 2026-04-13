@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -11,11 +13,12 @@ public class FallbackSearchProviderTests
 {
     readonly ISearchProvider _primary = Substitute.For<ISearchProvider>();
     readonly ISearchProvider _secondary = Substitute.For<ISearchProvider>();
+    readonly ILogger<FallbackSearchProvider> _logger = Substitute.For<ILogger<FallbackSearchProvider>>();
     readonly FallbackSearchProvider _sut;
 
     public FallbackSearchProviderTests()
     {
-        _sut = new FallbackSearchProvider(_primary, _secondary);
+        _sut = new FallbackSearchProvider(_primary, _secondary, _logger);
     }
 
     // ─── Primary succeeds ─────────────────────────────────────────────────────
@@ -204,5 +207,49 @@ public class FallbackSearchProviderTests
 
         await _primary.Received(1)
                       .SearchAsync("q", 8, Arg.Any<CancellationToken>());
+    }
+
+    // ─── Logging behavior ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SearchAsync_PrimaryThrows_LogsWarning()
+    {
+        var exception = new HttpRequestException("network error");
+        _primary.SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(exception);
+
+        _secondary.SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                  .Returns("fallback");
+
+        await _sut.SearchAsync("query", ct: TestContext.Current.CancellationToken);
+
+        // Logger.Log is called via the ILogger extension method; verify at least one call was made
+        _logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            exception,
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public async Task SearchAsync_CancellationRequested_DoesNotLog()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        _primary.SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new OperationCanceledException(cts.Token));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            _sut.SearchAsync("query", ct: cts.Token));
+
+        // OperationCanceledException must NOT be logged — it propagates directly
+        _logger.DidNotReceive().Log(
+            Arg.Any<LogLevel>(),
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<OperationCanceledException>(),
+            Arg.Any<Func<object, Exception?, string>>());
     }
 }
