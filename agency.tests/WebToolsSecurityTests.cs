@@ -72,15 +72,36 @@ public class WebToolsSecurityTests : IDisposable
     [Fact]
     public async Task FetchAsync_Blocks_0_0_0_0()
     {
-        // 0.0.0.0 is blocked by IsPrivateHostAsync (IPAddress.None / unspecified).
-        // On some platforms .NET's socket layer may reject it first with
-        // HttpRequestException wrapping ArgumentException, so we accept either.
+        // Two legitimate guard paths exist across runtimes/platforms:
+        //
+        //   Path A — IsPrivateHostAsync resolves 0.0.0.0 to bytes [0,0,0,0],
+        //   matches the bytes[0]==0 branch, and throws InvalidOperationException
+        //   with the "private/internal" message before any network I/O.
+        //
+        //   Path B — On runtimes where Dns.GetHostAddressesAsync rejects the
+        //   unspecified address before returning (throwOnIIPAny path, .NET 9+),
+        //   the ArgumentException is swallowed by IsPrivateHostAsync's catch block;
+        //   the request is forwarded and the socket layer throws HttpRequestException
+        //   wrapping ArgumentException about the unspecified address.
+        //
+        // Both outcomes confirm 0.0.0.0 cannot be reached. Any other exception
+        // (e.g. a SocketException from a real connection attempt) would indicate
+        // the guard failed, so we assert the exact accepted set below.
         var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
             _webTools.FetchAsync("http://0.0.0.0/secret", TestContext.Current.CancellationToken));
 
+        var isGuardFired = ex is InvalidOperationException ioe
+            && ioe.Message.Contains("private", StringComparison.OrdinalIgnoreCase);
+
+        var isSocketRejected = ex is HttpRequestException hre
+            && hre.InnerException is ArgumentException ae
+            && ae.Message.Contains("unspecified", StringComparison.OrdinalIgnoreCase);
+
         Assert.True(
-            ex is InvalidOperationException || ex is HttpRequestException,
-            $"Expected InvalidOperationException or HttpRequestException, got {ex.GetType().Name}");
+            isGuardFired || isSocketRejected,
+            $"Expected SSRF guard (InvalidOperationException containing 'private') or socket-layer " +
+            $"rejection (HttpRequestException wrapping ArgumentException containing 'unspecified'), " +
+            $"but got: {ex.GetType().Name}: {ex.Message}");
     }
 
     // ── IPv6 loopback and link-local ──────────────────────────────────────────
