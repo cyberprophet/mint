@@ -194,17 +194,17 @@ public partial class GptService
         var sb = new StringBuilder();
 
         sb.AppendLine("## Brief");
-        sb.AppendLine(context.Brief);
+        sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.Brief));
         sb.AppendLine();
 
         sb.AppendLine("## Market Context");
-        sb.AppendLine(context.MarketContext);
+        sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.MarketContext));
         sb.AppendLine();
 
         if (!string.IsNullOrEmpty(context.VisualDna))
         {
             sb.AppendLine("## Visual DNA");
-            sb.AppendLine(context.VisualDna);
+            sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.VisualDna));
             sb.AppendLine();
         }
 
@@ -217,7 +217,7 @@ public partial class GptService
         {
             sb.AppendLine();
             sb.AppendLine("## Previous Validation Error (FIX THIS)");
-            sb.AppendLine(context.Feedback);
+            sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.Feedback));
         }
 
         return sb.ToString();

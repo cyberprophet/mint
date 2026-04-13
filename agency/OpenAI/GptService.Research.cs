@@ -75,10 +75,10 @@ public partial class GptService
         options.Tools.Add(searchTool);
         options.Tools.Add(fetchTool);
 
-        var userContent = new StringBuilder($"Research this product: {productInfo}");
+        var userContent = new StringBuilder($"Research this product: {PromptSanitizer.EscapeForPrompt(productInfo)}");
 
         if (!string.IsNullOrEmpty(category))
-            userContent.Append($"\nProduct category: {category}");
+            userContent.Append($"\nProduct category: {PromptSanitizer.EscapeForPrompt(category)}");
 
         if (urls.Length > 0)
         {
