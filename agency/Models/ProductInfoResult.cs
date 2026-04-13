@@ -6,6 +6,16 @@ namespace ShareInvest.Agency.Models;
 /// (no hallucination). Each present field carries provenance to the source document that
 /// supplied the value so callers (e.g., P5) can present attribution to the user.
 /// </summary>
+/// <remarks>
+/// <para><b>Equality semantics:</b> this is a positional <see langword="record"/>, so the
+/// compiler-generated <see cref="object.Equals(object)"/> compares each parameter with its
+/// default equality. The array-typed members (<see cref="KeyFeatures"/>.<c>Value</c>,
+/// <see cref="SellingPoints"/>.<c>Value</c>, and <see cref="SourceDocuments"/>) therefore use
+/// <b>reference equality</b> — two otherwise-identical results built from separate arrays will
+/// NOT compare equal. Callers that need structural equality (e.g., for deduping or caching)
+/// should compare field-by-field using <see cref="System.Linq.Enumerable.SequenceEqual{T}(IEnumerable{T}, IEnumerable{T})"/>
+/// on the array members, or project into a canonical form before comparing.</para>
+/// </remarks>
 /// <param name="SchemaVersion">Schema version for forward compatibility. Current version is 1.</param>
 /// <param name="ProductName">Primary product name. Null if not present in any document.</param>
 /// <param name="OneLiner">Single-sentence pitch or tagline for the product.</param>

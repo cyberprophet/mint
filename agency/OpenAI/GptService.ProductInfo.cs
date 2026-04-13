@@ -115,7 +115,10 @@ public partial class GptService
 
         foreach (var doc in documents)
         {
-            userContent.AppendLine($"<document id=\"{PromptSanitizer.EscapeForPrompt(doc.Id)}\">");
+            // Id must round-trip verbatim: model is told to echo it as sourceDocument, and
+            // ValidateField rejects anything not in the canonical id set. Use the lighter
+            // HTML-escape (no <user_input> wrapping) so the raw id survives the round trip.
+            userContent.AppendLine($"<document id=\"{PromptSanitizer.EscapeIdentifierForPrompt(doc.Id)}\">");
             userContent.AppendLine(PromptSanitizer.EscapeForPrompt(doc.Text));
             userContent.AppendLine("</document>");
             userContent.AppendLine();
@@ -194,10 +197,34 @@ public partial class GptService
         if (result.SchemaVersion == 0)
             result = result with { SchemaVersion = 1 };
 
-        // If the model omitted sourceDocuments, backfill from the input list so callers
-        // always get the provenance roster.
-        if (result.SourceDocuments is null or { Length: 0 } && documents is { Count: > 0 })
-            result = result with { SourceDocuments = documents.Select(d => d.Id).ToArray() };
+        // Normalize sourceDocuments against the canonical input list:
+        //   - If the model omitted / emptied the field, backfill from inputs.
+        //   - If the model returned a set, intersect with known inputs to drop any
+        //     hallucinated ids (model sometimes invents or echoes wrapper tags).
+        //   - Fail-safe: if the intersection is empty, fall back to the known id list so
+        //     callers always receive a non-empty provenance roster.
+        if (documents is { Count: > 0 })
+        {
+            var canonicalIds = documents.Select(d => d.Id).ToArray();
+
+            if (result.SourceDocuments is null or { Length: 0 })
+            {
+                result = result with { SourceDocuments = canonicalIds };
+            }
+            else
+            {
+                var knownSet = new HashSet<string>(canonicalIds, StringComparer.Ordinal);
+                var filtered = result.SourceDocuments
+                    .Where(id => !string.IsNullOrWhiteSpace(id) && knownSet.Contains(id))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+
+                result = result with
+                {
+                    SourceDocuments = filtered.Length > 0 ? filtered : canonicalIds
+                };
+            }
+        }
 
         // Validate that every present field cites a known document id, when we have the
         // input list to check against. Unknown citations are dropped (set to null) rather
