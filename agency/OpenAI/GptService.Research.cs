@@ -75,17 +75,17 @@ public partial class GptService
         options.Tools.Add(searchTool);
         options.Tools.Add(fetchTool);
 
-        var userContent = new StringBuilder($"Research this product: {productInfo}");
+        var userContent = new StringBuilder($"Research this product: {PromptSanitizer.EscapeForPrompt(productInfo)}");
 
         if (!string.IsNullOrEmpty(category))
-            userContent.Append($"\nProduct category: {category}");
+            userContent.Append($"\nProduct category: {PromptSanitizer.EscapeForPrompt(category)}");
 
         if (urls.Length > 0)
         {
             userContent.Append("\n\nReference URLs to analyze:");
 
             for (int i = 0; i < urls.Length; i++)
-                userContent.Append($"\n{i + 1}. {urls[i]}");
+                userContent.Append($"\n{i + 1}. {PromptSanitizer.EscapeForPrompt(urls[i])}");
         }
 
         var messages = new List<ChatMessage>

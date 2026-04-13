@@ -141,13 +141,13 @@ public partial class GptService
         var sb = new StringBuilder();
 
         sb.AppendLine("## Storyboard");
-        sb.AppendLine(context.StoryboardJson);
+        sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.StoryboardJson));
         sb.AppendLine();
 
         if (!string.IsNullOrEmpty(context.VisualDna))
         {
             sb.AppendLine("## Visual DNA");
-            sb.AppendLine(context.VisualDna);
+            sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.VisualDna));
             sb.AppendLine();
         }
         else
@@ -160,14 +160,14 @@ public partial class GptService
         if (!string.IsNullOrEmpty(context.BriefJson))
         {
             sb.AppendLine("## Brief Context");
-            sb.AppendLine(context.BriefJson);
+            sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.BriefJson));
             sb.AppendLine();
         }
 
         if (!string.IsNullOrEmpty(context.Feedback))
         {
             sb.AppendLine("## Previous Validation Error (FIX THIS)");
-            sb.AppendLine(context.Feedback);
+            sb.AppendLine(PromptSanitizer.EscapeForPrompt(context.Feedback));
         }
 
         return sb.ToString();
