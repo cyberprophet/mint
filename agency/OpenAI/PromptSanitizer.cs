@@ -60,4 +60,28 @@ internal static partial class PromptSanitizer
 
         return $"{OpenTag}{text}{CloseTag}";
     }
+
+    /// <summary>
+    /// HTML-escapes structural identifiers (e.g., document ids) for safe inclusion in prompt
+    /// markup WITHOUT wrapping in <c>&lt;user_input&gt;</c> tags. Used when the model is
+    /// instructed to echo the id verbatim: wrapping would cause the model to round-trip the
+    /// wrapper tags, breaking downstream id-equality checks.
+    /// </summary>
+    /// <remarks>
+    /// Only replaces the characters that could break the surrounding attribute/element
+    /// context (<c>&lt;</c>, <c>&gt;</c>, <c>&amp;</c>, <c>"</c>). All other characters —
+    /// including the document id's original casing and punctuation — pass through unchanged
+    /// so <c>knownIds.Contains(id)</c> still succeeds on the parsed output.
+    /// </remarks>
+    internal static string EscapeIdentifierForPrompt(string? identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return string.Empty;
+
+        return identifier
+            .Replace("&",  "&amp;")
+            .Replace("<",  "&lt;")
+            .Replace(">",  "&gt;")
+            .Replace("\"", "&quot;");
+    }
 }
