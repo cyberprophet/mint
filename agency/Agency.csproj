@@ -32,6 +32,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<EmbeddedResource Include="Prompts\title-system.md" />
+		<EmbeddedResource Include="Prompts\visual-dna-system.md" />
+		<EmbeddedResource Include="Prompts\librarian-system.md" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
 			<_Parameter1>Agency.Tests</_Parameter1>
 		</AssemblyAttribute>
