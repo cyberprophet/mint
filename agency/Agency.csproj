@@ -35,6 +35,7 @@
 		<EmbeddedResource Include="Prompts\title-system.md" />
 		<EmbeddedResource Include="Prompts\visual-dna-system.md" />
 		<EmbeddedResource Include="Prompts\librarian-system.md" />
+		<EmbeddedResource Include="Prompts\studio-mint-base.md" />
 	</ItemGroup>
 
 	<ItemGroup>
