@@ -1,0 +1,163 @@
+# Changelog
+
+All notable changes to **ShareInvest.Agency** are documented here.
+
+The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+- NuGet: <https://www.nuget.org/packages/ShareInvest.Agency/>
+- Primary consumer: **P5 — page-mint-server** (creative-server / vendo)
+
+---
+
+## [0.10.0] — 2026-04-13
+
+### Added
+- **Studio Mint 4-shot image-edit agent** (Intent 031) — multi-pass image editing workflow for the studio-mint surface. ([#65])
+
+### Tests
+- Exhaustive coverage pass across the package; fixed `EmbeddedResourceTests`. ([#64])
+- Closed coverage gaps in storyboard generation, Athena design HTML, image mapping, and prompt assembly. ([#63])
+
+### Changed
+- Package version bumped `0.9.1 → 0.10.0`. ([#66])
+
+---
+
+## [0.9.1] — 2026-04
+
+### Added
+- **Librarian structured product-info extraction** (Intent 027). ([#62])
+
+### Fixed
+- Enforce hard character cap including truncation-marker length in `web_fetch` output (P-07). ([#58])
+
+---
+
+## [0.9.0] — 2026-04
+
+### Fixed
+- Cap `web_fetch` tool result at 8,000 chars with an explicit truncation marker (P-07). ([#57])
+- Map HTTP 401 and 429 correctly in image-generation error handling (E-21). ([#56])
+- Log primary search-provider failures instead of swallowing them silently (E-20). ([#55])
+- Pin test-project package versions and add missing explicit references (E-19). ([#54])
+
+---
+
+## [0.8.0] — 2026-03
+
+### Added
+- SSRF security hardening and expanded model coverage. ([#40])
+- Research-loop and blueprint-gate validation tests. ([#46])
+- `WebToolsHtmlExtractionTests` and `FallbackSearchProviderTests`.
+
+### Fixed
+- Implement `IDisposable` on `GptService` to prevent socket leaks (E-16). ([#43])
+- Escape user input in LLM prompts to prevent injection (S-12). ([#47])
+- Move Exa API key from URL query string to `x-api-key` header (S-07). ([#45])
+- Remove dead `OpenCodeService` that crashed on empty URI (E-17). ([#44])
+- Deny requests on DNS-resolution failure in SSRF check. ([#39])
+
+---
+
+## [0.7.0] — 2026-03
+
+### Added
+- **Gate 8** — required-section validation (`faq`, `spec-table`). ([#38])
+- Block-type diversity and `layoutVariant` non-repetition gates (Gates 14–15).
+- Athena center-alignment overuse warning gate.
+- Apollo `sectionType` enum expansion: `faq`, `spec-table`, `how-to-use`, `certification`.
+
+### Fixed
+- Skip the 30% `blockType` cap for pages with fewer than 5 blocks.
+- Resolve conflict between Gate 13 (background cycling) and Gates 14–15.
+- Address review feedback for blueprint gates (#34).
+- Read actual token usage from the image-generation API response. ([#32])
+- Remove `NonBacktracking` from sanitize regexes that use lookahead. ([#31])
+
+### Changed
+- **Athena HTML design generation** added to the agency. ([#30])
+- Externalize system prompts from the public NuGet package. ([#28])
+- Blueprint models for Pygmalion migration. ([#27])
+- P0 resilience improvements: observability, data quality, test coverage. ([#26])
+
+---
+
+## [0.2.0] — 2025 (initial feature release)
+
+### Added
+- **Title generation agent** via `GenerateTitleAsync` — uses `gpt-5-nano` with embedded
+  PageMint-tailored system prompt; titles capped at 50 characters.
+- Storyboard generation service (Apollo → P7 migration). ([#22])
+- Visual DNA image analysis via OpenAI Vision API. ([#7])
+- Research fetch failure budget, per-URL retry limit, and Cloudflare retry. ([#14])
+- Google.GenAI package with `GeminiService` and `OpenCodeService` scaffolding.
+
+### Fixed
+- Tailor title prompt to PageMint design-agency context.
+- Make `GenerateTitleAsync` virtual for testability.
+- Guard empty `Content` array and align truncation to 50-char limit.
+- Increase `MaxOutputTokenCount` to 1024 for `gpt-5-nano`.
+- Remove `temperature` parameter unsupported by `gpt-5-nano`.
+- Strengthen target-language enforcement in storyboard generation. ([#25])
+- Per-product `forbiddenCliches` validation in storyboard. ([#23])
+
+---
+
+## [0.1.1] — 2025
+
+### Fixed
+- Align `.csproj` version to published NuGet baseline (0.1.0 → 0.1.1). ([#3])
+- Use PNG icon for the NuGet package (ICO not supported). ([#1])
+
+---
+
+## [0.1.0] — 2025 (first publish)
+
+### Added
+- Initial **Agency Library** with NuGet package configuration and CI pipeline.
+- `nuget.org` publish step.
+- Re-export `GeneratedImageQuality` via `ImageQuality` wrapper.
+
+---
+
+[0.10.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.10.0
+[0.9.1]: https://www.nuget.org/packages/ShareInvest.Agency/0.9.1
+[0.9.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.9.0
+[0.8.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.8.0
+[0.7.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.7.0
+[0.2.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.2.0
+[0.1.1]: https://www.nuget.org/packages/ShareInvest.Agency/0.1.1
+[0.1.0]: https://www.nuget.org/packages/ShareInvest.Agency/0.1.0
+
+[#66]: https://github.com/cyberprophet/mint/pull/66
+[#65]: https://github.com/cyberprophet/mint/pull/65
+[#64]: https://github.com/cyberprophet/mint/pull/64
+[#63]: https://github.com/cyberprophet/mint/pull/63
+[#62]: https://github.com/cyberprophet/mint/pull/62
+[#58]: https://github.com/cyberprophet/mint/pull/58
+[#57]: https://github.com/cyberprophet/mint/pull/57
+[#56]: https://github.com/cyberprophet/mint/pull/56
+[#55]: https://github.com/cyberprophet/mint/pull/55
+[#54]: https://github.com/cyberprophet/mint/pull/54
+[#47]: https://github.com/cyberprophet/mint/pull/47
+[#46]: https://github.com/cyberprophet/mint/pull/46
+[#45]: https://github.com/cyberprophet/mint/pull/45
+[#44]: https://github.com/cyberprophet/mint/pull/44
+[#43]: https://github.com/cyberprophet/mint/pull/43
+[#40]: https://github.com/cyberprophet/mint/pull/40
+[#39]: https://github.com/cyberprophet/mint/pull/39
+[#38]: https://github.com/cyberprophet/mint/pull/38
+[#32]: https://github.com/cyberprophet/mint/pull/32
+[#31]: https://github.com/cyberprophet/mint/pull/31
+[#30]: https://github.com/cyberprophet/mint/pull/30
+[#28]: https://github.com/cyberprophet/mint/pull/28
+[#27]: https://github.com/cyberprophet/mint/pull/27
+[#26]: https://github.com/cyberprophet/mint/pull/26
+[#25]: https://github.com/cyberprophet/mint/pull/25
+[#23]: https://github.com/cyberprophet/mint/pull/23
+[#22]: https://github.com/cyberprophet/mint/pull/22
+[#14]: https://github.com/cyberprophet/mint/pull/14
+[#7]: https://github.com/cyberprophet/mint/pull/7
+[#3]: https://github.com/cyberprophet/mint/pull/3
+[#1]: https://github.com/cyberprophet/mint/pull/1

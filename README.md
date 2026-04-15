@@ -41,6 +41,11 @@ var title = await gpt.GenerateTitleAsync(conversationText, cancellationToken);
 
 The system prompt is stored as an embedded resource under `Prompts/title-system.md`.
 
+## Releases
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+Current release: **v0.10.0** — available on [nuget.org](https://www.nuget.org/packages/ShareInvest.Agency/).
+
 ## License
 
 MIT
