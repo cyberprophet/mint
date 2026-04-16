@@ -6,7 +6,6 @@ using ShareInvest.Agency.Models;
 
 using System.ClientModel;
 using System.Diagnostics;
-using System.Reflection;
 
 #pragma warning disable OPENAI001
 
@@ -25,19 +24,20 @@ public partial class GptService
     /// field rather than thrown, so a partial result still surfaces to the caller. The aggregate
     /// <see cref="StudioMintResult.IsComplete"/> flag indicates whether every shot succeeded.
     /// </remarks>
+    /// <param name="basePrompt">Full StudioMint base prompt assembled by the caller.</param>
     /// <param name="request">The source image plus optional intent guidance.</param>
     /// <param name="cancellationToken">Cancels the entire batch.</param>
     /// <param name="onUsage">Optional usage callback — invoked once per successful shot.</param>
     public virtual async Task<StudioMintResult> GenerateStudioMintAsync(
+        string basePrompt,
         StudioMintRequest request,
         CancellationToken cancellationToken = default,
         Action<ApiUsageEvent>? onUsage = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(basePrompt);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.SourceImage);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SourceImageFileName);
-
-        var basePrompt = LoadBasePrompt();
 
         var tasks = StudioMintShotTypes.All.Select((shot, index) =>
             GenerateSingleShotAsync(request, shot, index,
@@ -126,21 +126,6 @@ public partial class GptService
         }
     }
 
-    static string LoadBasePrompt()
-    {
-        if (s_cachedBasePrompt is not null)
-        {
-            return s_cachedBasePrompt;
-        }
-
-        var assembly = typeof(GptService).Assembly;
-        using var stream = assembly.GetManifestResourceStream(BasePromptResourceName)
-            ?? throw new InvalidOperationException($"Embedded resource '{BasePromptResourceName}' not found.");
-        using var reader = new StreamReader(stream);
-
-        return s_cachedBasePrompt = reader.ReadToEnd();
-    }
-
     /// <summary>
     /// Composes the full prompt sent to the OpenAI image-edit endpoint for one shot.
     /// Extracted to a pure helper so deterministic prompt-shape tests don't need to
@@ -154,9 +139,6 @@ public partial class GptService
 
         return $"{basePrompt}\n\nShot direction — {shot.Label}:\n{shot.Direction}{intentSuffix}";
     }
-
-    const string BasePromptResourceName = "ShareInvest.Agency.Prompts.studio-mint-base.md";
-    static string? s_cachedBasePrompt;
 }
 
 /// <summary>
