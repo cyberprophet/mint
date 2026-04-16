@@ -22,6 +22,7 @@ public partial class GptService
     /// <summary>
     /// Analyzes a reference web page to extract design and messaging inspiration.
     /// </summary>
+    /// <param name="systemPrompt">Full reference-link-analyst system prompt assembled by the caller.</param>
     /// <param name="url">Canonical URL of the reference page (included in the prompt for context).</param>
     /// <param name="html">Pre-fetched raw HTML of the page (scripts and styles are stripped internally).</param>
     /// <param name="context">Contextual hints: target language, optional product name.</param>
@@ -32,12 +33,14 @@ public partial class GptService
     /// valid structured output after <c>3</c> attempts.
     /// </returns>
     public virtual async Task<ReferenceLinkAnalysis?> AnalyzeReferenceLinkAsync(
+        string systemPrompt,
         string url,
         string html,
         ReferenceLinkContext context,
         Action<ApiUsageEvent>? onUsage = null,
         CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         ArgumentException.ThrowIfNullOrWhiteSpace(html);
         ArgumentNullException.ThrowIfNull(context);
@@ -58,7 +61,6 @@ public partial class GptService
         };
         options.Tools.Add(generateTool);
 
-        var systemPrompt = BuildReferenceLinkSystemPrompt();
         var userContent = BuildReferenceLinkUserMessage(url, html, context);
 
         var messages = new List<ChatMessage>
@@ -151,30 +153,6 @@ public partial class GptService
     }
 
     // ─── Prompt builders ──────────────────────────────────────────────────────
-
-    static string BuildReferenceLinkSystemPrompt() =>
-        """
-        You are a landing-page design analyst. You will be given the HTML of a reference web page.
-        Your task is to extract structured design and messaging intelligence from it.
-
-        IMPORTANT: This is a REFERENCE page for style/design inspiration — extract what makes it effective,
-        not what the product is. Focus on layout patterns, visual hierarchy, tone, and persuasion technique.
-
-        Field guidance:
-        - layoutPattern: Describe the top-level content flow as a hyphenated pattern
-          (e.g., "hero-problem-solution-cta", "grid-of-features", "testimonial-led-authority").
-        - copyTone: Single hyphenated label for the emotional/stylistic register of the copy
-          (e.g., "warm-editorial", "aggressive-sales", "minimal-premium", "playful-direct").
-        - colorPalette: Up to 6 dominant hex color codes inferred from class names, inline styles,
-          or OG image description. Use "#000000" if no colors can be determined.
-        - typographyStyle: Character of the type treatment
-          (e.g., "serif-heavy-editorial", "sans-minimal", "mixed-modern", "display-bold").
-        - messagingAngles: Exactly 3 short value propositions or selling points from the page copy.
-          Write each as a standalone sentence or phrase.
-        - rawSummary: 2–3 sentences describing the page and what makes it an effective reference.
-
-        Always call the generate_reference_link_analysis tool. Never return plain text.
-        """;
 
     static string BuildReferenceLinkUserMessage(string url, string html, ReferenceLinkContext context)
     {

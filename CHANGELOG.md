@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.12.0] — 2026-04-16
+
+### Changed
+- **BREAKING: `GptService.AnalyzeReferenceLinkAsync` now requires `string systemPrompt` as the first parameter.** The hardcoded `BuildReferenceLinkSystemPrompt()` builder has been removed so the prompt is owned by the caller (P5), matching the existing injection pattern used by `BlueprintAsync`, `DesignHtmlAsync`, `StoryboardAsync`, `ResearchAsync`, and `GenerateTitleAsync`. Keeps the public NuGet surface free of product-specific agent prompts.
+- Package version bumped `0.11.0 → 0.12.0`.
+
+---
+
 ## [0.11.0] — 2026-04-16
 
 ### Added
