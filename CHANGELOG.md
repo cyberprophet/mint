@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.11.0] — 2026-04-16
+
+### Added
+- **`AnalyzeReferenceLinkAsync` on `GptService`** (Intent 041 Phase A) — dedicated subagent that extracts layout pattern, copy tone, color palette, typography, messaging angles, and raw summary from a reference web page's HTML. Uses `gpt-5.4` with tool-calling + JSON schema validation and 3-attempt retry. ([#70])
+- **`ReferenceLinkAnalysis` DTO** (Intent 041 Phase A) — structured result record (`LayoutPattern`, `CopyTone`, `ColorPalette`, `TypographyStyle`, `MessagingAngles`, `RawSummary`). ([#70])
+- **`ReferenceLinkContext`** — input context (target language + optional product name) for the reference-link analyzer.
+
+### Changed
+- Package version bumped `0.10.0 → 0.11.0`.
+
+---
+
 ## [0.10.0] — 2026-04-13
 
 ### Added
