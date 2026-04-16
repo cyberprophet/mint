@@ -184,15 +184,15 @@ public partial class GptService
             : stripped;
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Reference URL: {url}");
-        sb.AppendLine($"Target language: {context.TargetLanguage}");
+        sb.AppendLine($"Reference URL: {PromptSanitizer.EscapeForPrompt(url)}");
+        sb.AppendLine($"Target language: {PromptSanitizer.EscapeForPrompt(context.TargetLanguage)}");
 
         if (!string.IsNullOrWhiteSpace(context.ProductName))
-            sb.AppendLine($"Our product (for context only — do not conflate with the reference): {context.ProductName}");
+            sb.AppendLine($"Our product (for context only — do not conflate with the reference): {PromptSanitizer.EscapeForPrompt(context.ProductName)}");
 
         sb.AppendLine();
         sb.AppendLine("## Page HTML");
-        sb.AppendLine(truncated);
+        sb.AppendLine(PromptSanitizer.EscapeForPrompt(truncated));
 
         return sb.ToString();
     }
