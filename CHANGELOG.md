@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.13.0] — 2026-04-16
+
+### Removed
+- **`agency/Prompts/` folder deleted entirely.** The four MD files (`librarian-system.md`, `studio-mint-base.md`, `title-system.md`, `visual-dna-system.md`) no longer ship in the public repository or the NuGet package. Prompts live in P5 (`Models/Prompts/`) and are injected at the call site.
+- `BuildReferenceLinkSystemPrompt()` removed from `GptService.ReferenceLink`.
+- `LoadBasePrompt()` helper + embedded-resource resolution removed from `GptService.StudioMint`.
+
+### Changed
+- **BREAKING: `GptService.AnalyzeReferenceLinkAsync` now requires `string systemPrompt` as the first parameter.**
+- **BREAKING: `GptService.GenerateStudioMintAsync` now requires `string basePrompt` as the first parameter.**
+- Both follow the existing injection pattern used by `BlueprintAsync`, `DesignHtmlAsync`, `StoryboardAsync`, `ResearchAsync`, `GenerateTitleAsync`, and `ExtractProductInfoAsync`. Keeps the public NuGet surface free of product-specific agent prompts.
+- Package version bumped `0.11.0 → 0.13.0` (0.12.0 was pushed earlier today with only the reference-link change and is superseded).
+
+---
+
+## [0.12.0] — 2026-04-16
+
+### Changed
+- **BREAKING: `GptService.AnalyzeReferenceLinkAsync` now requires `string systemPrompt` as the first parameter.** Superseded by 0.13.0 — prefer the newer release, which also removes the `agency/Prompts/` folder.
+- Package version bumped `0.11.0 → 0.12.0`.
+
+---
+
 ## [0.11.0] — 2026-04-16
 
 ### Added
