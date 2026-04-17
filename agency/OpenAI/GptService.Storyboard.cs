@@ -102,7 +102,7 @@ public partial class GptService
 
             if (onUsage is not null && completion.Usage is { } usage)
             {
-                onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "storyboard"));
+                onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount, "storyboard"));
             }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)

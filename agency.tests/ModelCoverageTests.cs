@@ -19,31 +19,39 @@ public class ModelCoverageTests
 {
     static readonly JsonSerializerOptions CaseInsensitive = new() { PropertyNameCaseInsensitive = true };
 
-    // ─── GeminiService ────────────────────────────────────────────────────────
+    // ─── GeminiProvider ──────────────────────────────────────────────────────
 
     [Fact]
-    public void GeminiService_Constructor_SetsApiKey()
+    public void GeminiProvider_Constructor_SetsProviderName()
     {
-        // GeminiService is a thin wrapper — construction must not throw.
-        var service = new GeminiService("fake-key");
-        Assert.NotNull(service);
+        using var provider = new GeminiProvider(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<GeminiProvider>.Instance, "fake-key");
+        Assert.Equal("gemini", provider.ProviderName);
     }
 
     [Fact]
-    public void GeminiService_Client_ReturnsNonNull()
+    public void GeminiProvider_ImplementsTextAndVisionInterfaces()
     {
-        var service = new GeminiService("fake-key");
-        // Client property creates a new Google.GenAI.Client on each access.
-        // We verify it doesn't throw and returns a non-null reference.
-        Assert.NotNull(service.Client);
+        using var provider = new GeminiProvider(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<GeminiProvider>.Instance, "fake-key");
+        Assert.IsAssignableFrom<ITextGenerationProvider>(provider);
+        Assert.IsAssignableFrom<IVisionProvider>(provider);
     }
 
     [Fact]
-    public void GeminiService_ClientProperty_CanBeAccessedMultipleTimes()
+    public async Task GeminiProvider_UnsupportedMethods_ThrowNotSupportedException()
     {
-        var service = new GeminiService("fake-key");
-        _ = service.Client;
-        _ = service.Client; // second access must not throw
+        using var provider = new GeminiProvider(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<GeminiProvider>.Instance, "fake-key");
+
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            provider.GenerateStoryboardAsync("prompt", null!, "model"));
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            provider.GenerateBlueprintAsync("prompt", null!, "model"));
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            provider.GenerateDesignHtmlAsync("prompt", null!, "model"));
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            provider.ResearchProductAsync("prompt", "info", [], null, "model"));
     }
 
     // ─── ImageQuality ──────────────────────────────────────────────────────────

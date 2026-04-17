@@ -1,9 +1,10 @@
-﻿namespace ShareInvest.Agency;
+namespace ShareInvest.Agency;
 
 /// <summary>
-/// Core contract for AI agency services in the PageMint ecosystem, including batch image generation and title generation.
+/// Marker interface for AI agency services in the PageMint ecosystem.
+/// For capability-specific contracts, see <see cref="ITextGenerationProvider"/>,
+/// <see cref="IVisionProvider"/>, and <see cref="IImageGenerationProvider"/>.
 /// </summary>
 public interface IAgency
 {
-
 }

@@ -2,6 +2,7 @@
 
 using OpenAI;
 using OpenAI.Chat;
+using OpenAI.Images;
 
 using ShareInvest.Agency.Models;
 
@@ -11,17 +12,18 @@ using System.Text.RegularExpressions;
 namespace ShareInvest.Agency.OpenAI;
 
 /// <summary>
-/// Partial class inheriting <see cref="OpenAIClient"/> that provides GPT-based AI services, including title generation and image generation.
+/// OpenAI / OpenAI-compatible provider implementing text generation, vision, and image generation.
+/// Uses composition over inheritance to allow endpoint customisation for compatible providers
+/// (MiniMax, Groq, Fireworks, Together AI, etc.).
 /// </summary>
-public partial class GptService : OpenAIClient, IDisposable
+public partial class GptService : ITextGenerationProvider, IVisionProvider, IImageGenerationProvider
 {
     /// <summary>
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger and API key.
     /// </summary>
-    /// <param name="logger">Logger instance for diagnostic output.</param>
-    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
-    public GptService(ILogger<GptService> logger, string apiKey) : base(apiKey)
+    public GptService(ILogger<GptService> logger, string apiKey)
     {
+        client = new OpenAIClient(apiKey);
         this.logger = logger;
         webTools = new WebTools();
     }
@@ -29,11 +31,9 @@ public partial class GptService : OpenAIClient, IDisposable
     /// <summary>
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key, and custom image model name.
     /// </summary>
-    /// <param name="logger">Logger instance for diagnostic output.</param>
-    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
-    /// <param name="imageModel">Name of the OpenAI image model to use for image generation.</param>
-    public GptService(ILogger<GptService> logger, string apiKey, string imageModel) : base(apiKey)
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel)
     {
+        client = new OpenAIClient(apiKey);
         this.logger = logger;
         this.imageModel = imageModel;
         webTools = new WebTools();
@@ -43,21 +43,46 @@ public partial class GptService : OpenAIClient, IDisposable
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key,
     /// custom image model name, and optional Exa API key for web research.
     /// </summary>
-    /// <param name="logger">Logger instance for diagnostic output.</param>
-    /// <param name="apiKey">OpenAI API key used to authenticate requests.</param>
-    /// <param name="imageModel">Name of the OpenAI image model to use for image generation.</param>
-    /// <param name="exaApiKey">Optional Exa API key for authenticated web search.</param>
-    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey) : base(apiKey)
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey)
     {
+        client = new OpenAIClient(apiKey);
         this.logger = logger;
         this.imageModel = imageModel;
-
         webTools = new WebTools(exaApiKey);
     }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="GptService"/> with a custom endpoint for OpenAI-compatible providers.
+    /// </summary>
+    /// <param name="logger">Logger instance for diagnostic output.</param>
+    /// <param name="apiKey">Provider API key.</param>
+    /// <param name="options">Client options with custom <see cref="OpenAIClientOptions.Endpoint"/>.</param>
+    /// <param name="imageModel">Name of the image model to use for image generation.</param>
+    /// <param name="exaApiKey">Optional Exa API key for web research.</param>
+    /// <param name="providerName">Provider name for telemetry (e.g., "groq", "minimax").</param>
+    public GptService(ILogger<GptService> logger, string apiKey, OpenAIClientOptions options, string? imageModel = null, string? exaApiKey = null, string providerName = "openai")
+    {
+        client = new OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey), options);
+        this.logger = logger;
+        this.imageModel = imageModel;
+        this.providerName = providerName;
+        webTools = new WebTools(exaApiKey);
+    }
+
+    /// <inheritdoc />
+    public string ProviderName => providerName;
+
+    readonly OpenAIClient client;
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
+    readonly string providerName = "openai";
     readonly WebTools webTools;
+
+    /// <summary>Gets a chat client for the specified model from the composed <see cref="OpenAIClient"/>.</summary>
+    internal virtual ChatClient GetChatClient(string model) => client.GetChatClient(model);
+
+    /// <summary>Gets an image client for the specified model from the composed <see cref="OpenAIClient"/>.</summary>
+    internal virtual ImageClient GetImageClient(string? model) => client.GetImageClient(model);
 
     /// <summary>
     /// Generates a short title (50 characters or fewer) summarising the given conversation text using gpt-5-nano.
@@ -89,7 +114,7 @@ public partial class GptService : OpenAIClient, IDisposable
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
+            onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount, "title", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
@@ -120,7 +145,7 @@ public partial class GptService : OpenAIClient, IDisposable
 
         if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)
         {
-            onUsage(new ApiUsageEvent("openai", model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
+            onUsage(new ApiUsageEvent(ProviderName, model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
                 "title", LatencyMs: (int)repairSw.ElapsedMilliseconds));
         }
 

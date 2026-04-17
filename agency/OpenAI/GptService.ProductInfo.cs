@@ -101,7 +101,7 @@ public partial class GptService
 
         if (onUsage is not null && completion.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount,
+            onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount,
                 "product_info", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 

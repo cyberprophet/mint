@@ -244,7 +244,7 @@ public class ExtractProductInfoTests
     sealed class ControlledProductInfoGptService(ChatClient chatClient)
         : GptService(NullLogger<GptService>.Instance, "test-key")
     {
-        public override ChatClient GetChatClient(string model) => chatClient;
+        internal override ChatClient GetChatClient(string model) => chatClient;
     }
 
     /// <summary>Minimal <see cref="PipelineResponse"/> stub required by <see cref="ClientResult.FromValue{T}"/>.</summary>

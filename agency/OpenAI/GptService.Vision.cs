@@ -57,7 +57,7 @@ public partial class GptService
 
         if (onUsage is not null && result.Value.Usage is { } usage)
         {
-            onUsage(new ApiUsageEvent("openai", model, usage.InputTokenCount, usage.OutputTokenCount, "vision", LatencyMs: (int)sw.ElapsedMilliseconds));
+            onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount, "vision", LatencyMs: (int)sw.ElapsedMilliseconds));
         }
 
         var raw = result.Value.Content.FirstOrDefault()?.Text;
@@ -95,7 +95,7 @@ public partial class GptService
 
         if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)
         {
-            onUsage(new ApiUsageEvent("openai", model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
+            onUsage(new ApiUsageEvent(ProviderName, model, repairUsage.InputTokenCount, repairUsage.OutputTokenCount,
                 "vision", LatencyMs: (int)repairSw.ElapsedMilliseconds));
         }
 

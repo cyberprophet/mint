@@ -755,7 +755,7 @@ public class ReferenceLinkAnalystTests
     sealed class ControlledGptService(ChatClient chatClient)
         : GptService(NullLogger<GptService>.Instance, "test-key")
     {
-        public override ChatClient GetChatClient(string model) => chatClient;
+        internal override ChatClient GetChatClient(string model) => chatClient;
     }
 
     /// <summary>Minimal <see cref="PipelineResponse"/> stub for wrapping <see cref="ClientResult{T}"/>.</summary>
