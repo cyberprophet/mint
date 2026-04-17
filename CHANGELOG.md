@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.15.0] — 2026-04-17
+
+### Added
+- **`ModelPricingTable` + `ModelPricing`** — static per-model token pricing lookup, moved from P5 `Server/Core/` to the shared Agency library (`ShareInvest.Agency.Models`). Enables any consumer to estimate API costs consistently. Prices are sourced from provider public docs and updated manually; bump `PricingVersion` when entries change.
+
+---
+
 ## [0.14.0] — 2026-04-17
 
 ### Removed

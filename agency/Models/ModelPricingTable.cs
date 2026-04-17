@@ -17,8 +17,8 @@ public static class ModelPricingTable
     /// <summary>Increment when pricing entries are added, removed, or changed.</summary>
     public const int PricingVersion = 1;
 
-    /// <summary>Known prices keyed by (provider, model) tuple.</summary>
-    public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices = new Dictionary<(string, string), ModelPricing>
+    /// <summary>Known prices keyed by (provider, model) tuple. Lookups are case-insensitive.</summary>
+    public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices = new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
     {
         [("openai", "gpt-5.4")] = new(1.25m, 10.00m),
         [("openai", "gpt-5.4-nano")] = new(0.05m, 0.40m),
@@ -27,7 +27,7 @@ public static class ModelPricingTable
         [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
     };
 
-    /// <summary>Estimates the USD cost for a single API call based on token counts.</summary>
+    /// <summary>Estimates the USD cost for a single API call based on token counts. Returns null for unknown models.</summary>
     public static decimal? EstimateCost(string provider, string model, int inputTokens, int outputTokens, int? cacheWriteTokens = null, int? cacheReadTokens = null)
     {
         if (!Prices.TryGetValue((provider, model), out var pricing))
@@ -42,5 +42,19 @@ public static class ModelPricingTable
             cost += cacheReadTokens.Value / 1_000_000m * pricing.CacheReadUsdPer1M;
 
         return cost;
+    }
+
+    sealed class ProviderModelComparer : IEqualityComparer<(string, string)>
+    {
+        public static readonly ProviderModelComparer Instance = new();
+
+        public bool Equals((string, string) x, (string, string) y) =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.Item1, y.Item1) &&
+            StringComparer.OrdinalIgnoreCase.Equals(x.Item2, y.Item2);
+
+        public int GetHashCode((string, string) obj) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2));
     }
 }
