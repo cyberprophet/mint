@@ -106,6 +106,29 @@ public class ModelPricingTableTests
     }
 
     [Fact]
+    public void EstimateCost_ImageModel_ZeroOutputTokens_ReturnsNull()
+    {
+        // When OpenAI SDK returns null Usage, tokens default to 0.
+        // Fail-closed: return null (unknown cost) instead of $0.
+        var usage = new ApiUsageEvent("openai", "gpt-image-1", 0, 0, "image",
+            ImageQuality: "high", ImageSize: "1024x1024");
+
+        Assert.Null(ModelPricingTable.EstimateCost(usage));
+    }
+
+    [Fact]
+    public void EstimateCost_TextModel_ZeroTokens_ReturnsZero()
+    {
+        // Text models with 0 tokens should still return 0 (not null) — this is valid.
+        var usage = new ApiUsageEvent("openai", "gpt-5.4", 0, 0, "blueprint");
+
+        var cost = ModelPricingTable.EstimateCost(usage);
+
+        Assert.NotNull(cost);
+        Assert.Equal(0m, cost.Value);
+    }
+
+    [Fact]
     public void PricingVersion_IsThree()
     {
         Assert.Equal(3, ModelPricingTable.PricingVersion);

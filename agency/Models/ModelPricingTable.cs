@@ -61,9 +61,16 @@ public static class ModelPricingTable
         return cost;
     }
 
-    /// <summary>Unified estimator: resolves provider+model from <see cref="ApiUsageEvent"/> and delegates to the token-based calculator.</summary>
+    /// <summary>
+    /// Unified estimator: resolves provider+model from <see cref="ApiUsageEvent"/> and delegates to the token-based calculator.
+    /// Returns null (fail-closed) when an image model reports zero output tokens, which indicates the API did not return usage data.
+    /// </summary>
     public static decimal? EstimateCost(ApiUsageEvent usage)
     {
+        if (usage.OutputTokens == 0
+            && usage.Model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase))
+            return null;
+
         return EstimateCost(usage.Provider, usage.Model, usage.InputTokens, usage.OutputTokens);
     }
 
