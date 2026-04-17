@@ -154,6 +154,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         Action<ApiUsageEvent>? onUsage = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentNullException.ThrowIfNull(documents);
 
         if (documents.Count == 0)
             return null;
@@ -196,6 +197,9 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ArgumentException.ThrowIfNullOrWhiteSpace(html);
+        ArgumentNullException.ThrowIfNull(context);
 
         var truncatedHtml = html.Length > 12_000 ? html[..12_000] + "\n[…truncated]" : html;
 
@@ -220,15 +224,19 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             Temperature = 0.2f,
         };
 
+        // ITextGenerationProvider.AnalyzeReferenceLinkAsync does not expose a model
+        // parameter — the interface delegates model selection to the provider.
+        const string refLinkModel = "gemini-2.5-flash";
+
         var sw = Stopwatch.StartNew();
         var response = await client.Models.GenerateContentAsync(
-            model: "gemini-2.5-flash",
+            model: refLinkModel,
             contents: TextContent(userMessage),
             config: config,
             cancellationToken: cancellationToken);
         sw.Stop();
 
-        ReportUsage(response, "gemini-2.5-flash", "reference_link", sw.ElapsedMilliseconds, onUsage);
+        ReportUsage(response, refLinkModel, "reference_link", sw.ElapsedMilliseconds, onUsage);
 
         var raw = response.Text;
 
@@ -241,6 +249,8 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
     /// <inheritdoc />
     public void Dispose()
     {
+        // Google.GenAI.Client does not implement IDisposable as of v1.6.1.
+        (client as IDisposable)?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -279,7 +289,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
 
     static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
-    static VisualDnaResult? TryParseVisualDna(string raw)
+    VisualDnaResult? TryParseVisualDna(string raw)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
@@ -288,28 +298,39 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         {
             return JsonSerializer.Deserialize<VisualDnaResult>(json, CaseInsensitiveOptions)?.Normalize();
         }
-        catch
+        catch (JsonException ex)
         {
+            logger.LogDebug(ex, "Failed to parse Gemini visual-dna response");
             return null;
         }
     }
 
-    static ProductInfoResult? TryParseProductInfo(string raw, IReadOnlyList<ProductInfoDocument>? documents)
+    ProductInfoResult? TryParseProductInfo(string raw, IReadOnlyList<ProductInfoDocument> documents)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
 
         try
         {
-            return JsonSerializer.Deserialize<ProductInfoResult>(json, CaseInsensitiveOptions);
+            var result = JsonSerializer.Deserialize<ProductInfoResult>(json, CaseInsensitiveOptions);
+            if (result is null) return null;
+
+            // Normalize provenance: filter SourceDocuments to only known input IDs
+            var knownIds = new HashSet<string>(documents.Select(d => d.Id), StringComparer.OrdinalIgnoreCase);
+            var validSources = result.SourceDocuments?
+                .Where(s => knownIds.Contains(s))
+                .ToArray();
+
+            return result with { SourceDocuments = validSources };
         }
-        catch
+        catch (JsonException ex)
         {
+            logger.LogDebug(ex, "Failed to parse Gemini product-info response");
             return null;
         }
     }
 
-    static ReferenceLinkAnalysis? TryParseReferenceLinkAnalysis(string raw)
+    ReferenceLinkAnalysis? TryParseReferenceLinkAnalysis(string raw)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
@@ -318,8 +339,9 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         {
             return JsonSerializer.Deserialize<ReferenceLinkAnalysis>(json, CaseInsensitiveOptions);
         }
-        catch
+        catch (JsonException ex)
         {
+            logger.LogDebug(ex, "Failed to parse Gemini reference-link analysis response");
             return null;
         }
     }
