@@ -177,12 +177,39 @@ public class ClassifyValidationErrorsTests
     }
 
     [Fact]
-    public void UnrecognizedError_ReturnsOther()
+    public void UnrecognizedError_WithoutPrefix_ReturnsUnknown()
     {
+        // Non-prefixed lines are skipped (treated as embedded model content)
         var result = GptService.ClassifyValidationErrors("Something unexpected happened.");
 
         Assert.Single(result);
+        Assert.Equal("unknown", result[0]);
+    }
+
+    [Fact]
+    public void UnrecognizedError_WithPrefix_ReturnsOther()
+    {
+        var result = GptService.ClassifyValidationErrors("[Validation Error] Something truly unexpected.");
+
+        Assert.Single(result);
         Assert.Equal("other", result[0]);
+    }
+
+    [Fact]
+    public void MultiLine_SkipsEmbeddedModelContent()
+    {
+        // Simulates a validation error with embedded model content (multi-line prompt snippet)
+        var error = "[Validation Error] Asset slot \"s1\" in block \"b1\": prompt too short (40 chars, min 80).\n" +
+                    "A beautiful product photo with\n" +
+                    "soft lighting and neutral background.\n" +
+                    "[Validation Error] pageDesignSystem.mood is required.";
+
+        var result = GptService.ClassifyValidationErrors(error);
+
+        // Only the two prefixed lines should be classified; the embedded prompt lines are skipped
+        Assert.Equal(2, result.Length);
+        Assert.Contains("prompt_too_short", result);
+        Assert.Contains("pageDesignSystem_incomplete", result);
     }
 
     [Fact]

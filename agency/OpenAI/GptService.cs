@@ -193,12 +193,24 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     /// Classifies validation error strings into diagnostic categories for structured logging.
     /// Used by Intent 037 Phase A to identify which validation rules fire most often.
     /// </summary>
+    /// <summary>
+    /// Known prefixes emitted by ValidateBlueprint / ValidateStoryboard.
+    /// Lines not starting with one of these are embedded model content fragments
+    /// (e.g., multi-line image prompts) and should be skipped to avoid noise.
+    /// </summary>
+    static readonly string[] ErrorLinePrefixes = ["[Validation Error]", "[Rhythm Error]", "[Parse Error]",
+        "Page has", "blockType"];
+
     internal static string[] ClassifyValidationErrors(string validationError)
     {
         var categories = new List<string>();
 
         foreach (var line in validationError.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
+            // Skip non-error fragments (embedded model content, multi-line prompts)
+            if (!Array.Exists(ErrorLinePrefixes, prefix => line.StartsWith(prefix, StringComparison.Ordinal)))
+                continue;
+
             var category = line switch
             {
                 _ when line.Contains("visualBlocks") => "visualBlocks_constraint",
@@ -208,7 +220,7 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
                 _ when line.Contains("layoutVariant") => "invalid_layoutVariant",
                 _ when line.Contains("panel") && (line.Contains("requires at least") || line.Contains("should have at least one assetSlot per panel")) => "insufficient_panels",
                 _ when line.Contains("hero") && line.Contains("heightWeight") => "hero_heightWeight",
-                _ when line.Contains("CTA") || line.Contains("offer-reassurance-sticky") => "cta_heightWeight",
+                _ when line.Contains("offer-reassurance-sticky") && line.Contains("heightWeight") => "cta_heightWeight",
                 _ when line.Contains("assetSlot") && line.Contains("per panel") => "slot_panel_mismatch",
                 _ when line.Contains("assetSlot") => "missing_assetSlot",
                 _ when line.Contains("forbidden pattern") => "forbidden_prompt_pattern",
