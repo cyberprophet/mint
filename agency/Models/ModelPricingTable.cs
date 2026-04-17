@@ -90,6 +90,10 @@ public static class ModelPricingTable
         if (usage.ImageQuality is not null || usage.ImageSize is not null)
             return EstimateImageCost(usage.Model, usage.ImageQuality, usage.ImageSize);
 
+        if (usage.Model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(usage.Purpose, "image", StringComparison.OrdinalIgnoreCase))
+            return EstimateImageCost(usage.Model, null, null);
+
         return EstimateCost(usage.Provider, usage.Model, usage.InputTokens, usage.OutputTokens);
     }
 
