@@ -13,71 +13,34 @@ namespace ShareInvest.Agency.OpenAI;
 public partial class GptService
 {
     /// <summary>
-    /// Default system prompt used by <see cref="ExtractProductInfoAsync"/> when the caller does
-    /// not supply one. Encodes the librarian extraction contract:
-    /// <list type="bullet">
-    /// <item>Return strict JSON matching <see cref="ProductInfoResult"/>.</item>
-    /// <item>Every field is optional — return <c>null</c> if not present in any document.</item>
-    /// <item>Never invent or hallucinate data; quote / paraphrase from the source only.</item>
-    /// <item>For each included field, record which document it came from in <c>sourceDocument</c>.</item>
-    /// <item>When multiple documents disagree, pick the most detailed/authoritative and record that source.</item>
-    /// </list>
-    /// </summary>
-    public const string DefaultProductInfoSystemPrompt = """
-        You are a meticulous product-information librarian. You will receive one or more
-        source documents describing a product, each tagged with a document id. Extract the
-        following structured fields into strict JSON:
-
-          - productName         (string)
-          - oneLiner            (string — single-sentence pitch / tagline)
-          - keyFeatures         (string[] — bulleted key features / benefits)
-          - detailedSpec        (string — materials, dimensions, ingredients, tech specs)
-          - usage               (string — how to use / instructions)
-          - cautions            (string — warnings, contraindications, safety notes)
-          - targetCustomer      (string — persona, demographic, use case)
-          - sellingPoints       (string[] — marketing-oriented selling points)
-
-        RULES — follow exactly:
-
-        1. If a field is NOT present in any of the supplied documents, return null for that
-           field. DO NOT invent, infer beyond the text, or hallucinate plausible values.
-        2. Each present field MUST be emitted as an object of the form
-           {"value": <the value>, "sourceDocument": "<document id>"} where <document id>
-           is exactly one of the ids supplied in the input.
-        3. If multiple documents describe the same field, pick the single most detailed or
-           authoritative source and record THAT document's id. Do not merge strings from
-           different documents into one value.
-        4. For list-valued fields (keyFeatures, sellingPoints), the value is an array of
-           strings all drawn from the same chosen sourceDocument.
-        5. Include a top-level "schemaVersion": 1 and
-           "sourceDocuments": [<every input document id>, ...] listing every document
-           you considered (including ones that contributed nothing).
-        6. Respond with JSON ONLY — no prose, no markdown fences, no commentary.
-        """;
-
-    /// <summary>
     /// Extracts structured product information from one or more source documents.
     /// Every output field carries provenance (<see cref="ProductInfoField{T}.SourceDocument"/>)
     /// so the caller can render which document supplied each field. Missing fields return
     /// <see langword="null"/> rather than hallucinated values.
     /// </summary>
+    /// <param name="systemPrompt">
+    /// The extraction system prompt that instructs the model on output schema, field semantics,
+    /// and no-hallucination rules. Must be non-null and non-whitespace. The prompt is owned by
+    /// the P5 orchestrator (ADR-013) and injected at the call site — this library does not
+    /// supply a default.
+    /// </param>
     /// <param name="documents">Source documents to extract from. At least one required.</param>
-    /// <param name="systemPrompt">Optional override for the extraction prompt. Defaults to
-    /// <see cref="DefaultProductInfoSystemPrompt"/>.</param>
     /// <param name="model">Chat model to use.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="onUsage">Optional callback invoked with token usage after the call.</param>
     /// <returns>Parsed <see cref="ProductInfoResult"/>, or <see langword="null"/> if the model
     /// produced no valid JSON.</returns>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="documents"/> is empty or
-    /// contains a document with a blank id or blank text.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="systemPrompt"/> is null,
+    /// empty, or whitespace, or when <paramref name="documents"/> is empty or contains a document
+    /// with a blank id or blank text.</exception>
     public virtual async Task<ProductInfoResult?> ExtractProductInfoAsync(
+        string systemPrompt,
         IReadOnlyList<ProductInfoDocument> documents,
-        string? systemPrompt = null,
         string model = "gpt-5.4-nano",
         CancellationToken cancellationToken = default,
         Action<ApiUsageEvent>? onUsage = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentNullException.ThrowIfNull(documents);
 
         if (documents.Count == 0)
@@ -126,7 +89,7 @@ public partial class GptService
 
         var messages = new ChatMessage[]
         {
-            ChatMessage.CreateSystemMessage(systemPrompt ?? DefaultProductInfoSystemPrompt),
+            ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage(userContent.ToString())
         };
 

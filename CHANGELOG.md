@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.14.0] — 2026-04-17
+
+### Removed
+- **`GptService.DefaultProductInfoSystemPrompt` const deleted.** The last ADR-013 holdout: the inline system prompt for product-info extraction no longer ships in the public NuGet. P5 owns and injects it at the call site.
+
+### Changed
+- **BREAKING: `GptService.ExtractProductInfoAsync` now requires `string systemPrompt` as the first parameter.** The previously optional `string? systemPrompt = null` trailing parameter has been promoted to a required first positional parameter. Callers must supply a non-null, non-whitespace prompt. Fixes [mint#74](https://github.com/cyberprophet/mint/issues/74).
+
+---
+
 ## [0.13.0] — 2026-04-16
 
 ### Removed

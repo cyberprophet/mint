@@ -97,33 +97,18 @@ public class StudioMintTests
         Assert.Equal(prompts.Length, prompts.Distinct().Count());
     }
 
-    // ─── Embedded base prompt resource ───────────────────────────────────────
+    // ─── Embedded base prompt resource (ADR-013) ─────────────────────────────
 
     [Fact]
-    public void BasePromptResource_IsEmbeddedAndLoadable()
+    public void BasePromptResource_IsNotEmbedded_AfterAdr013()
     {
+        // ADR-013: studio-mint-base.md was removed from the public NuGet in 0.13.0.
+        // The prompt now lives in P5 and is injected at the call site via basePrompt param.
         var assembly = typeof(GptService).Assembly;
 
         using var stream = assembly.GetManifestResourceStream("ShareInvest.Agency.Prompts.studio-mint-base.md");
 
-        Assert.NotNull(stream);
-        Assert.True(stream!.Length > 0);
-    }
-
-    [Fact]
-    public void BasePromptResource_ContainsStyleInstructions()
-    {
-        var assembly = typeof(GptService).Assembly;
-
-        using var stream = assembly.GetManifestResourceStream("ShareInvest.Agency.Prompts.studio-mint-base.md");
-        using var reader = new StreamReader(stream!);
-
-        var content = reader.ReadToEnd();
-
-        // Sanity: the base prompt must at least mention photography + preservation,
-        // otherwise the shot prompts would not produce on-brief output.
-        Assert.Contains("photograph", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("preserve", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(stream);
     }
 
     // ─── Input validation ─────────────────────────────────────────────────────
@@ -134,7 +119,7 @@ public class StudioMintTests
         var svc = CreateService();
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => svc.GenerateStudioMintAsync(null!));
+            () => svc.GenerateStudioMintAsync("test base prompt", null!));
     }
 
     [Fact]
@@ -144,7 +129,7 @@ public class StudioMintTests
         var request = new StudioMintRequest("user-1", SourceImage: null!, "product.png");
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => svc.GenerateStudioMintAsync(request));
+            () => svc.GenerateStudioMintAsync("test base prompt", request));
     }
 
     [Theory]
@@ -162,7 +147,7 @@ public class StudioMintTests
         // `ThrowIfNullOrWhiteSpace` throws ArgumentNullException for null and
         // ArgumentException for empty/whitespace — accept either subclass.
         await Assert.ThrowsAnyAsync<ArgumentException>(
-            () => svc.GenerateStudioMintAsync(request));
+            () => svc.GenerateStudioMintAsync("test base prompt", request));
     }
 
     // ─── Error mapping (replays the catch ladder used in-place) ──────────────

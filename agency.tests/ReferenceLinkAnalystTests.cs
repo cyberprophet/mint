@@ -56,7 +56,7 @@ public class ReferenceLinkAnalystTests
         var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
 
         await Assert.ThrowsAnyAsync<ArgumentException>(
-            () => svc.AnalyzeReferenceLinkAsync(url!, SampleHtml, DefaultContext));
+            () => svc.AnalyzeReferenceLinkAsync("test system prompt", url!, SampleHtml, DefaultContext));
     }
 
     [Theory]
@@ -68,7 +68,7 @@ public class ReferenceLinkAnalystTests
         var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
 
         await Assert.ThrowsAnyAsync<ArgumentException>(
-            () => svc.AnalyzeReferenceLinkAsync(SampleUrl, html!, DefaultContext));
+            () => svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, html!, DefaultContext));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class ReferenceLinkAnalystTests
         var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, null!));
+            () => svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, null!));
     }
 
     // ─── Happy path ───────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ public class ReferenceLinkAnalystTests
             [expected]);
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         Assert.NotNull(result);
@@ -118,7 +118,7 @@ public class ReferenceLinkAnalystTests
             [expected]);
 
         await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         Assert.Single(usageEvents);
@@ -143,7 +143,7 @@ public class ReferenceLinkAnalystTests
             [invalid, valid]);
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         Assert.NotNull(result);
@@ -168,7 +168,7 @@ public class ReferenceLinkAnalystTests
             [invalid, invalid, invalid]);
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         Assert.Null(result);
@@ -187,7 +187,7 @@ public class ReferenceLinkAnalystTests
             []);
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         Assert.Null(result);
@@ -208,7 +208,7 @@ public class ReferenceLinkAnalystTests
             [expected]);
 
         await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext,
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext,
             onUsage: usageEvents.Add);
 
         // Single-round success → exactly 1 usage event
@@ -446,7 +446,7 @@ public class ReferenceLinkAnalystTests
         var usageEvents = new List<ApiUsageEvent>();
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
 
         Assert.NotNull(result);
         Assert.Equal("hero-benefit-cta", result!.LayoutPattern);
@@ -472,7 +472,7 @@ public class ReferenceLinkAnalystTests
         var usageEvents = new List<ApiUsageEvent>();
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
 
         Assert.NotNull(result);
         Assert.Equal("hero-benefit-cta", result!.LayoutPattern);
@@ -495,7 +495,7 @@ public class ReferenceLinkAnalystTests
         var usageEvents = new List<ApiUsageEvent>();
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
 
         Assert.NotNull(result);
         Assert.Equal("hero-benefit-cta", result!.LayoutPattern);
@@ -517,7 +517,7 @@ public class ReferenceLinkAnalystTests
         var usageEvents = new List<ApiUsageEvent>();
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
 
         Assert.Null(result);
         Assert.Equal(3, usageEvents.Count);
@@ -540,7 +540,7 @@ public class ReferenceLinkAnalystTests
         var usageEvents = new List<ApiUsageEvent>();
 
         var result = await svc.AnalyzeReferenceLinkAsync(
-            SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
+            "test system prompt", SampleUrl, SampleHtml, DefaultContext, onUsage: usageEvents.Add);
 
         Assert.Null(result);
         Assert.Equal(3, usageEvents.Count);
@@ -558,7 +558,7 @@ public class ReferenceLinkAnalystTests
         ]);
         var svc = new ControlledGptService(chatClient);
 
-        var result = await svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, DefaultContext);
+        var result = await svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, DefaultContext);
 
         Assert.NotNull(result);
         Assert.Equal("warm-editorial", result!.CopyTone);
@@ -576,7 +576,7 @@ public class ReferenceLinkAnalystTests
         ]);
         var svc = new ControlledGptService(chatClient);
 
-        var result = await svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, DefaultContext);
+        var result = await svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, DefaultContext);
 
         Assert.NotNull(result);
         Assert.Equal(3, result!.ColorPalette.Length);
@@ -594,7 +594,7 @@ public class ReferenceLinkAnalystTests
         ]);
         var svc = new ControlledGptService(chatClient);
 
-        var result = await svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, DefaultContext);
+        var result = await svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, DefaultContext);
 
         Assert.NotNull(result);
         Assert.Equal(3, result!.MessagingAngles.Length);
@@ -612,7 +612,7 @@ public class ReferenceLinkAnalystTests
         ]);
         var svc = new ControlledGptService(chatClient);
 
-        var result = await svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, DefaultContext);
+        var result = await svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, DefaultContext);
 
         Assert.NotNull(result);
         Assert.Equal("sans-minimal", result!.TypographyStyle);
@@ -630,7 +630,7 @@ public class ReferenceLinkAnalystTests
         ]);
         var svc = new ControlledGptService(chatClient);
 
-        var result = await svc.AnalyzeReferenceLinkAsync(SampleUrl, SampleHtml, DefaultContext);
+        var result = await svc.AnalyzeReferenceLinkAsync("test system prompt", SampleUrl, SampleHtml, DefaultContext);
 
         Assert.NotNull(result);
         Assert.False(string.IsNullOrWhiteSpace(result!.RawSummary));
@@ -790,12 +790,14 @@ public class ReferenceLinkAnalystTests
         int _callIndex;
 
         public override async Task<ReferenceLinkAnalysis?> AnalyzeReferenceLinkAsync(
+            string systemPrompt,
             string url,
             string html,
             ReferenceLinkContext context,
             Action<ApiUsageEvent>? onUsage = null,
             CancellationToken ct = default)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
             ArgumentException.ThrowIfNullOrWhiteSpace(url);
             ArgumentException.ThrowIfNullOrWhiteSpace(html);
             ArgumentNullException.ThrowIfNull(context);
