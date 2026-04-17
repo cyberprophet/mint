@@ -11,6 +11,8 @@ namespace ShareInvest.Agency.Models;
 /// <param name="MessageId">Optional message identifier for correlation (e.g. chat message ID).</param>
 /// <param name="LatencyMs">Optional round-trip latency of the API call in milliseconds.</param>
 /// <param name="RetryCount">Optional number of retries before a successful response (0 = first attempt succeeded).</param>
+/// <param name="ImageQuality">For image models: "low", "medium", or "high". Null for text models.</param>
+/// <param name="ImageSize">For image models: "1024x1024", "1024x1536", or "1536x1024". Null for text models.</param>
 public record ApiUsageEvent(
     string Provider,
     string Model,
@@ -19,4 +21,6 @@ public record ApiUsageEvent(
     string Purpose,
     long? MessageId = null,
     int? LatencyMs = null,
-    int? RetryCount = null);
+    int? RetryCount = null,
+    string? ImageQuality = null,
+    string? ImageSize = null);

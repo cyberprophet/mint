@@ -89,7 +89,8 @@ public partial class GptService
                     (int)(usage?.InputTokenCount ?? 0),
                     (int)(usage?.OutputTokenCount ?? 0),
                     $"studio-mint:{shot.Id}",
-                    LatencyMs: (int)sw.ElapsedMilliseconds));
+                    LatencyMs: (int)sw.ElapsedMilliseconds,
+                    ImageQuality: "high", ImageSize: "1024x1024"));
             }
 
             return new StudioMintShot(index, shot.Id, result.Value[0].ImageBytes);
