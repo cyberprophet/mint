@@ -47,10 +47,18 @@ public partial class GptService
             if (onUsage is not null)
             {
                 var usage = result.Value.Usage;
+                var actualQuality = request.Quality ?? GeneratedImageQuality.HighQuality;
+                var qualityName = actualQuality == GeneratedImageQuality.LowQuality ? "low"
+                    : actualQuality == GeneratedImageQuality.MediumQuality ? "medium"
+                    : "high";
+                var sizeName = size == GeneratedImageSize.W1024xH1536 ? "1024x1536"
+                    : size == GeneratedImageSize.W1536xH1024 ? "1536x1024"
+                    : "1024x1024";
                 onUsage(new ApiUsageEvent("openai", imageModel ?? "gpt-image-1",
                     (int)(usage?.InputTokenCount ?? 0),
                     (int)(usage?.OutputTokenCount ?? 0),
-                    "image", LatencyMs: (int)sw.ElapsedMilliseconds));
+                    "image", LatencyMs: (int)sw.ElapsedMilliseconds,
+                    ImageQuality: qualityName, ImageSize: sizeName));
             }
 
             return result.Value[0].ImageBytes as T;
