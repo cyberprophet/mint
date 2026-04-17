@@ -7,56 +7,44 @@ namespace ShareInvest.Agency.Models;
 /// <param name="CacheReadUsdPer1M">Cache read cost per 1M tokens (USD). Zero if not applicable.</param>
 public record ModelPricing(decimal InputUsdPer1M, decimal OutputUsdPer1M, decimal CacheWriteUsdPer1M = 0, decimal CacheReadUsdPer1M = 0);
 
-/// <summary>Per-image pricing keyed by (quality, size) for image generation models.</summary>
-/// <param name="CostPerImage">USD cost per generated image.</param>
-public record ImagePricing(decimal CostPerImage);
-
 /// <summary>
 /// Static lookup table of provider+model token prices. Prices are sourced
 /// from each provider's public pricing page and updated manually.
 /// Bump <see cref="PricingVersion"/> when entries change.
+///
+/// Image generation models (gpt-image-*) use the Image modality token rates.
+/// The OpenAI API reports input_tokens and output_tokens for image calls;
+/// output tokens represent the generated image and scale with quality × size
+/// (e.g. high 1024×1024 ≈ 4,160 output tokens).
 /// </summary>
 public static class ModelPricingTable
 {
     /// <summary>Increment when pricing entries are added, removed, or changed.</summary>
-    public const int PricingVersion = 2;
+    public const int PricingVersion = 3;
 
-    /// <summary>Known text-model prices keyed by (provider, model) tuple. Lookups are case-insensitive.</summary>
+    /// <summary>
+    /// Known model prices keyed by (provider, model) tuple. Lookups are case-insensitive.
+    /// Image models use Image modality rates (verified 2026-04-17 against OpenAI pricing page).
+    /// </summary>
     public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices =
         new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
         {
-            [("openai", "gpt-5.4")] = new(2.50m, 15.00m),
+            // --- Text models ---
+            [("openai", "gpt-5.4")]      = new(2.50m, 15.00m),
             [("openai", "gpt-5.4-nano")] = new(0.20m, 1.25m),
-            [("openai", "gpt-5-nano")] = new(0.05m, 0.40m),
+            [("openai", "gpt-5-nano")]   = new(0.05m, 0.40m),
+
             [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
+
+            // --- Image models (Image modality token rates) ---
+            // Input  = image-input rate (covers both text prompt tokens and source-image tokens)
+            // Output = image-output rate (generated image tokens; count varies by quality × size)
+            [("openai", "gpt-image-1")]      = new(10.00m, 40.00m),
+            [("openai", "gpt-image-1.5")]    = new(8.00m, 32.00m),
+            [("openai", "gpt-image-1-mini")] = new(2.50m, 8.00m),
         }.AsReadOnly();
 
-    /// <summary>Per-image prices keyed by (model, quality, size). Verified 2026-04-17.</summary>
-    public static readonly IReadOnlyDictionary<(string Model, string Quality, string Size), ImagePricing> ImagePrices =
-        new Dictionary<(string, string, string), ImagePricing>(ImageKeyComparer.Instance)
-        {
-        [("gpt-image-1", "low", "1024x1024")] = new(0.011m),
-        [("gpt-image-1", "low", "1024x1536")] = new(0.016m),
-        [("gpt-image-1", "low", "1536x1024")] = new(0.016m),
-        [("gpt-image-1", "medium", "1024x1024")] = new(0.042m),
-        [("gpt-image-1", "medium", "1024x1536")] = new(0.063m),
-        [("gpt-image-1", "medium", "1536x1024")] = new(0.063m),
-        [("gpt-image-1", "high", "1024x1024")] = new(0.167m),
-        [("gpt-image-1", "high", "1024x1536")] = new(0.25m),
-        [("gpt-image-1", "high", "1536x1024")] = new(0.25m),
-
-        [("gpt-image-1.5", "low", "1024x1024")] = new(0.009m),
-        [("gpt-image-1.5", "low", "1024x1536")] = new(0.013m),
-        [("gpt-image-1.5", "low", "1536x1024")] = new(0.013m),
-        [("gpt-image-1.5", "medium", "1024x1024")] = new(0.034m),
-        [("gpt-image-1.5", "medium", "1024x1536")] = new(0.05m),
-        [("gpt-image-1.5", "medium", "1536x1024")] = new(0.05m),
-        [("gpt-image-1.5", "high", "1024x1024")] = new(0.133m),
-        [("gpt-image-1.5", "high", "1024x1536")] = new(0.2m),
-        [("gpt-image-1.5", "high", "1536x1024")] = new(0.2m),
-    }.AsReadOnly();
-
-    /// <summary>Estimates the USD cost for a single text-model API call based on token counts. Returns null for unknown models.</summary>
+    /// <summary>Estimates the USD cost for a single API call based on token counts. Returns null for unknown models.</summary>
     public static decimal? EstimateCost(string provider, string model, int inputTokens, int outputTokens, int? cacheWriteTokens = null, int? cacheReadTokens = null)
     {
         if (!Prices.TryGetValue((provider, model), out var pricing))
@@ -73,27 +61,9 @@ public static class ModelPricingTable
         return cost;
     }
 
-    /// <summary>Estimates the USD cost for a single image generation call. Returns null for unknown model/quality/size combinations.</summary>
-    public static decimal? EstimateImageCost(string model, string? quality, string? size)
-    {
-        quality ??= "high";
-        size ??= "1024x1024";
-
-        return ImagePrices.TryGetValue((model, quality, size), out var pricing)
-            ? pricing.CostPerImage
-            : null;
-    }
-
-    /// <summary>Unified estimator: routes to <see cref="EstimateCost"/> for text models or <see cref="EstimateImageCost"/> for image models based on <see cref="ApiUsageEvent"/>.</summary>
+    /// <summary>Unified estimator: resolves provider+model from <see cref="ApiUsageEvent"/> and delegates to the token-based calculator.</summary>
     public static decimal? EstimateCost(ApiUsageEvent usage)
     {
-        if (usage.ImageQuality is not null || usage.ImageSize is not null)
-            return EstimateImageCost(usage.Model, usage.ImageQuality, usage.ImageSize);
-
-        if (usage.Model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(usage.Purpose, "image", StringComparison.OrdinalIgnoreCase))
-            return EstimateImageCost(usage.Model, null, null);
-
         return EstimateCost(usage.Provider, usage.Model, usage.InputTokens, usage.OutputTokens);
     }
 
@@ -109,21 +79,5 @@ public static class ModelPricingTable
             HashCode.Combine(
                 StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1),
                 StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2));
-    }
-
-    sealed class ImageKeyComparer : IEqualityComparer<(string, string, string)>
-    {
-        public static readonly ImageKeyComparer Instance = new();
-
-        public bool Equals((string, string, string) x, (string, string, string) y) =>
-            StringComparer.OrdinalIgnoreCase.Equals(x.Item1, y.Item1) &&
-            StringComparer.OrdinalIgnoreCase.Equals(x.Item2, y.Item2) &&
-            StringComparer.OrdinalIgnoreCase.Equals(x.Item3, y.Item3);
-
-        public int GetHashCode((string, string, string) obj) =>
-            HashCode.Combine(
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1),
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2),
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item3));
     }
 }
