@@ -15,15 +15,15 @@ public record ModelPricing(decimal InputUsdPer1M, decimal OutputUsdPer1M, decima
 public static class ModelPricingTable
 {
     /// <summary>Increment when pricing entries are added, removed, or changed.</summary>
-    public const int PricingVersion = 1;
+    public const int PricingVersion = 2;
 
-    /// <summary>Known prices keyed by (provider, model) tuple. Lookups are case-insensitive.</summary>
+    /// <summary>Known prices keyed by (provider, model) tuple. Lookups are case-insensitive.
+    /// Last verified: 2026-04-17 from provider public pricing pages.</summary>
     public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices = new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
     {
-        [("openai", "gpt-5.4")] = new(1.25m, 10.00m),
-        [("openai", "gpt-5.4-nano")] = new(0.05m, 0.40m),
+        [("openai", "gpt-5.4")] = new(2.50m, 15.00m),
+        [("openai", "gpt-5.4-nano")] = new(0.20m, 1.25m),
         [("openai", "gpt-5-nano")] = new(0.05m, 0.40m),
-        [("openai", "gpt-image-1")] = new(10.00m, 40.00m),
         [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
     };
 
