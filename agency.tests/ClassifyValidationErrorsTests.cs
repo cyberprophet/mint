@@ -214,4 +214,40 @@ public class ClassifyValidationErrorsTests
         Assert.Single(result);
         Assert.Equal("repeated_layoutVariant", result[0]);
     }
+
+    [Fact]
+    public void SingleLine_SlotPerPanel_ShouldHave_Classified()
+    {
+        // Tests the actual validator output from GptService.Blueprint.cs (Gate 7)
+        var result = GptService.ClassifyValidationErrors(
+            "[Validation Error] Block \"b3\": blockType \"vertical-triptych\" should have " +
+            "at least one assetSlot per panel (3 panels, 1 slots). " +
+            "Each scene/step needs its own photo — do not combine multiple scenes into one image.");
+
+        Assert.Single(result);
+        Assert.Equal("insufficient_panels", result[0]);
+    }
+
+    [Fact]
+    public void SingleLine_SlotPerPanel_RequiresAtLeast_Classified()
+    {
+        // Tests the "requires at least" variant (Gate 6: minimum panel count)
+        var result = GptService.ClassifyValidationErrors(
+            "[Validation Error] Block \"b2\": blockType \"vertical-triptych\" requires " +
+            "at least 2 panel(s), got 1.");
+
+        Assert.Single(result);
+        Assert.Equal("insufficient_panels", result[0]);
+    }
+
+    [Fact]
+    public void SingleLine_MissingAssetSlot_Classified()
+    {
+        // Tests the actual validator output: "must have at least 1 assetSlot"
+        var result = GptService.ClassifyValidationErrors(
+            "[Validation Error] Block \"b1\": must have at least 1 assetSlot.");
+
+        Assert.Single(result);
+        Assert.Equal("missing_assetSlot", result[0]);
+    }
 }
