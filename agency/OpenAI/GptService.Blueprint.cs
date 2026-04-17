@@ -85,6 +85,8 @@ public partial class GptService
 
                         if (blueprint is null || blueprint.VisualBlocks is null || blueprint.VisualBlocks.Length == 0)
                         {
+                            logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                                "blueprint", attempt + 1, "visualBlocks_empty");
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                                 "[Validation Error] visualBlocks must contain at least one block."));
                             continue;
@@ -92,6 +94,8 @@ public partial class GptService
 
                         if (blueprint.PageDesignSystem is null)
                         {
+                            logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                                "blueprint", attempt + 1, "pageDesignSystem_null");
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                                 "[Validation Error] pageDesignSystem is required."));
                             continue;
@@ -101,6 +105,9 @@ public partial class GptService
 
                         if (validationError is not null)
                         {
+                            var categories = ClassifyValidationErrors(validationError);
+                            logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}, Rules={Rules}",
+                                "blueprint", attempt + 1, "validation_rule", string.Join(";", categories));
                             logger.LogWarning("Blueprint validation failed (attempt {Attempt}): {Error}",
                                 attempt + 1, validationError.Length > 300 ? validationError[..300] + "..." : validationError);
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id, validationError));
@@ -111,6 +118,8 @@ public partial class GptService
                     }
                     catch (JsonException ex)
                     {
+                        logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                            "blueprint", attempt + 1, "json_parse_error");
                         logger.LogWarning(ex, "Failed to parse generate_layout_blueprint arguments (attempt {Attempt})", attempt + 1);
                         messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                             $"[Parse Error] Invalid JSON: {ex.Message}. Rewrite the blueprint as valid JSON."));
@@ -119,6 +128,8 @@ public partial class GptService
             }
             else if (completion.FinishReason == ChatFinishReason.Stop)
             {
+                logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                    "blueprint", attempt + 1, "tool_not_called");
                 var text = completion.Content.FirstOrDefault()?.Text;
                 logger.LogWarning("Model returned text instead of calling generate_layout_blueprint (attempt {Attempt})", attempt + 1);
                 messages.Add(ChatMessage.CreateAssistantMessage(text ?? ""));
@@ -127,6 +138,8 @@ public partial class GptService
             }
             else
             {
+                logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}, FinishReason={FinishReason}",
+                    "blueprint", attempt + 1, "unexpected_finish", completion.FinishReason);
                 logger.LogWarning("Unexpected finish reason: {Reason}", completion.FinishReason);
                 break;
             }

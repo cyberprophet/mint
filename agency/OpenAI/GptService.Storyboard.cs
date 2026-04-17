@@ -124,6 +124,8 @@ public partial class GptService
 
                         if (storyboard is null || storyboard.Sections is null || storyboard.Sections.Length == 0)
                         {
+                            logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                                "storyboard", attempt + 1, "sections_empty");
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                                 "[Validation Error] sections must contain at least one section."));
                             continue;
@@ -134,6 +136,8 @@ public partial class GptService
                         {
                             if (storyboard.Sections[i].Blocks is null)
                             {
+                                logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}, Section={Section}",
+                                    "storyboard", attempt + 1, "null_blocks", storyboard.Sections[i].Title);
                                 messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                                     $"[Validation Error] Section \"{storyboard.Sections[i].Title}\" has a null blocks array. Every section must include a blocks array."));
                                 goto nextToolCall;
@@ -151,6 +155,9 @@ public partial class GptService
 
                         if (validationError is not null)
                         {
+                            var categories = ClassifyValidationErrors(validationError);
+                            logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}, Rules={Rules}",
+                                "storyboard", attempt + 1, "validation_rule", string.Join(";", categories));
                             logger.LogWarning("Storyboard validation failed (attempt {Attempt}): {Error}",
                                 attempt + 1, validationError.Length > 200 ? validationError[..200] + "..." : validationError);
                             messages.Add(ChatMessage.CreateToolMessage(toolCall.Id, validationError));
@@ -161,6 +168,8 @@ public partial class GptService
                     }
                     catch (JsonException ex)
                     {
+                        logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                            "storyboard", attempt + 1, "json_parse_error");
                         logger.LogWarning(ex, "Failed to parse save_storyboard arguments (attempt {Attempt})", attempt + 1);
                         messages.Add(ChatMessage.CreateToolMessage(toolCall.Id,
                             $"[Parse Error] Invalid JSON: {ex.Message}. Rewrite the storyboard as valid JSON."));
@@ -171,6 +180,8 @@ public partial class GptService
             }
             else if (completion.FinishReason == ChatFinishReason.Stop)
             {
+                logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}",
+                    "storyboard", attempt + 1, "tool_not_called");
                 // Model produced text instead of calling the tool — ask it to use the tool
                 var text = completion.Content.FirstOrDefault()?.Text;
                 logger.LogWarning("Model returned text instead of calling save_storyboard (attempt {Attempt})", attempt + 1);
@@ -180,6 +191,8 @@ public partial class GptService
             }
             else
             {
+                logger.LogInformation("ValidationRetry: Purpose={Purpose}, Attempt={Attempt}, Category={Category}, FinishReason={FinishReason}",
+                    "storyboard", attempt + 1, "unexpected_finish", completion.FinishReason);
                 logger.LogWarning("Unexpected finish reason: {Reason}", completion.FinishReason);
                 break;
             }

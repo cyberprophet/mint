@@ -189,4 +189,50 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     [GeneratedRegex(@"<think>[\s\S]*?</think>\s*")]
     private static partial Regex ThinkBlockRegex();
 
+    /// <summary>
+    /// Classifies validation error strings into diagnostic categories for structured logging.
+    /// Used by Intent 037 Phase A to identify which validation rules fire most often.
+    /// </summary>
+    internal static string[] ClassifyValidationErrors(string validationError)
+    {
+        var categories = new List<string>();
+
+        foreach (var line in validationError.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var category = line switch
+            {
+                _ when line.Contains("visualBlocks") => "visualBlocks_constraint",
+                _ when line.Contains("pageDesignSystem") => "pageDesignSystem_incomplete",
+                _ when line.Contains("blockType") && line.Contains("invalid") => "invalid_blockType",
+                _ when line.Contains("reuses layoutVariant") => "repeated_layoutVariant",
+                _ when line.Contains("layoutVariant") => "invalid_layoutVariant",
+                _ when line.Contains("panel") && line.Contains("requires at least") => "insufficient_panels",
+                _ when line.Contains("hero") && line.Contains("heightWeight") => "hero_heightWeight",
+                _ when line.Contains("CTA") || line.Contains("offer-reassurance-sticky") => "cta_heightWeight",
+                _ when line.Contains("assetSlot") && line.Contains("per panel") => "slot_panel_mismatch",
+                _ when line.Contains("assetSlot") || line.Contains("must have at least 1 assetSlot") => "missing_assetSlot",
+                _ when line.Contains("forbidden pattern") => "forbidden_prompt_pattern",
+                _ when line.Contains("prompt too short") => "prompt_too_short",
+                _ when line.Contains("negativeConstraints") => "missing_negativeConstraints",
+                _ when line.Contains("Rhythm Error") && line.Contains("blockType") => "rhythm_blockType",
+                _ when line.Contains("Rhythm Error") && line.Contains("heightWeight") => "rhythm_heightWeight",
+                _ when line.Contains("unique blockTypes") || line.Contains("block types for variety") => "low_blockType_diversity",
+                _ when line.Contains("missing type: \"image\"") => "missing_image_block",
+                _ when line.Contains("not primarily English") => "image_prompt_not_english",
+                _ when line.Contains("too short") => "image_prompt_too_short",
+                _ when line.Contains("Generic copy") || line.Contains("Forbidden cliché") => "generic_copy",
+                _ when line.Contains("references external context") => "external_reference",
+                _ when line.Contains("language mismatch") => "onscreen_text_language",
+                _ when line.Contains("appears to be in English") => "copy_wrong_language",
+                _ when line.Contains("Missing required section") => "missing_required_section",
+                _ => "other"
+            };
+
+            if (!categories.Contains(category))
+                categories.Add(category);
+        }
+
+        return categories.Count > 0 ? [.. categories] : ["unknown"];
+    }
+
 }
