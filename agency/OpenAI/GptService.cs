@@ -220,7 +220,7 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
                 _ when line.Contains("layoutVariant") => "invalid_layoutVariant",
                 _ when line.Contains("panel") && (line.Contains("requires at least") || line.Contains("should have at least one assetSlot per panel")) => "insufficient_panels",
                 _ when line.Contains("hero") && line.Contains("heightWeight") => "hero_heightWeight",
-                _ when line.Contains("offer-reassurance-sticky") && line.Contains("heightWeight") => "cta_heightWeight",
+                _ when line.Contains("CTA blocks should use") => "cta_heightWeight",
                 _ when line.Contains("assetSlot") && line.Contains("per panel") => "slot_panel_mismatch",
                 _ when line.Contains("assetSlot") => "missing_assetSlot",
                 _ when line.Contains("forbidden pattern") => "forbidden_prompt_pattern",

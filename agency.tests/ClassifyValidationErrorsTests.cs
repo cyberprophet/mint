@@ -243,6 +243,17 @@ public class ClassifyValidationErrorsTests
     }
 
     [Fact]
+    public void SingleLine_CtaHeightWeight_Gate9_Classified()
+    {
+        // Tests the actual Gate 9 validator output from GptService.Blueprint.cs
+        var result = GptService.ClassifyValidationErrors(
+            "[Validation Error] Block \"b8\": CTA blocks should use \"short\" or \"medium\", got \"xl\".");
+
+        Assert.Single(result);
+        Assert.Equal("cta_heightWeight", result[0]);
+    }
+
+    [Fact]
     public void SingleLine_SlotPerPanel_ShouldHave_Classified()
     {
         // Tests the actual validator output from GptService.Blueprint.cs (Gate 7)
