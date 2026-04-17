@@ -1,4 +1,9 @@
+using System.ClientModel;
+using System.ClientModel.Primitives;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
 
 using OpenAI.Chat;
 
@@ -78,19 +83,54 @@ public class ExtractProductInfoTests
     }
 
     [Fact]
-    public void ExtractProductInfoAsync_Passes_Injected_Prompt()
+    public async Task ExtractProductInfoAsync_Passes_Injected_Prompt()
     {
-        // Verify that the system message sent to the chat client is exactly what the
-        // caller supplied. We exercise this via the internal capture path: build the
-        // message array manually the same way the implementation does and assert the
-        // first element carries the injected prompt verbatim.
+        // Verifies that ExtractProductInfoAsync wires the caller-supplied system prompt
+        // verbatim into the first ChatMessage passed to CompleteChatAsync. A regression
+        // that hard-codes or replaces the prompt would fail here because the captured
+        // system message would no longer match the injected string.
         const string injected = "My custom extraction prompt";
+        var docs = new[] { new ProductInfoDocument("spec.pdf", "Product body text.") };
 
-        var systemMessage = ChatMessage.CreateSystemMessage(injected);
+        IReadOnlyList<ChatMessage>? captured = null;
 
-        // The implementation creates the system message from the injected string
-        // directly (no ?? fallback since ADR-013 closure). Verify round-trip.
-        Assert.Equal(injected, systemMessage.Content[0].Text);
+        var chatClient = Substitute.For<ChatClient>();
+        chatClient
+            .CompleteChatAsync(
+                Arg.Any<IEnumerable<ChatMessage>>(),
+                Arg.Any<ChatCompletionOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.ArgAt<IEnumerable<ChatMessage>>(0).ToList();
+                // Return a minimal Stop completion so ParseProductInfoResult receives empty content
+                // and returns null — that's fine; we only care about the captured messages.
+                var stopJson = """
+                    {
+                      "id": "chatcmpl-capture",
+                      "object": "chat.completion",
+                      "created": 1700000000,
+                      "model": "gpt-5.4-nano",
+                      "choices": [{
+                        "index": 0,
+                        "message": {"role": "assistant", "content": ""},
+                        "finish_reason": "stop"
+                      }],
+                      "usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11}
+                    }
+                    """;
+                var completion = ModelReaderWriter.Read<ChatCompletion>(BinaryData.FromString(stopJson))!;
+                return Task.FromResult(ClientResult.FromValue(completion, new FakeProductInfoPipelineResponse()));
+            });
+
+        var svc = new ControlledProductInfoGptService(chatClient);
+        await svc.ExtractProductInfoAsync(injected, docs);
+
+        Assert.NotNull(captured);
+        Assert.True(captured!.Count >= 1, "Expected at least one ChatMessage.");
+        // Index 0 is the system message; its first content part must carry the injected prompt verbatim.
+        var systemMsg = captured[0];
+        Assert.Equal(injected, systemMsg.Content[0].Text);
     }
 
     [Fact]
@@ -191,5 +231,34 @@ public class ExtractProductInfoTests
 
         Assert.NotNull(result);
         Assert.Equal(["spec.pdf", "brochure.md"], result!.SourceDocuments);
+    }
+
+    // ─── Helpers for prompt-capture test ─────────────────────────────────────
+
+    /// <summary>
+    /// A <see cref="GptService"/> subclass that overrides <see cref="GetChatClient"/>
+    /// to return the injected <see cref="ChatClient"/> substitute, allowing
+    /// <see cref="ExtractProductInfoAsync_Passes_Injected_Prompt"/> to exercise
+    /// the REAL production method without touching the OpenAI network.
+    /// </summary>
+    sealed class ControlledProductInfoGptService(ChatClient chatClient)
+        : GptService(NullLogger<GptService>.Instance, "test-key")
+    {
+        public override ChatClient GetChatClient(string model) => chatClient;
+    }
+
+    /// <summary>Minimal <see cref="PipelineResponse"/> stub required by <see cref="ClientResult.FromValue{T}"/>.</summary>
+    sealed class FakeProductInfoPipelineResponse : PipelineResponse
+    {
+        BinaryData? _content;
+        public override int Status => 200;
+        public override string ReasonPhrase => "OK";
+        public override Stream? ContentStream { get; set; }
+        public override BinaryData Content => _content ??= BinaryData.FromString(string.Empty);
+        public override BinaryData BufferContent(CancellationToken cancellationToken = default) => Content;
+        public override ValueTask<BinaryData> BufferContentAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Content);
+        protected override PipelineResponseHeaders HeadersCore => throw new NotSupportedException();
+        public override void Dispose() { }
     }
 }
