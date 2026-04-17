@@ -22,17 +22,19 @@ public static class ModelPricingTable
     public const int PricingVersion = 2;
 
     /// <summary>Known text-model prices keyed by (provider, model) tuple. Lookups are case-insensitive.</summary>
-    public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices = new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
-    {
-        [("openai", "gpt-5.4")] = new(2.50m, 15.00m),
-        [("openai", "gpt-5.4-nano")] = new(0.20m, 1.25m),
-        [("openai", "gpt-5-nano")] = new(0.05m, 0.40m),
-        [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
-    };
+    public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices =
+        new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
+        {
+            [("openai", "gpt-5.4")] = new(2.50m, 15.00m),
+            [("openai", "gpt-5.4-nano")] = new(0.20m, 1.25m),
+            [("openai", "gpt-5-nano")] = new(0.05m, 0.40m),
+            [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
+        }.AsReadOnly();
 
     /// <summary>Per-image prices keyed by (model, quality, size). Verified 2026-04-17.</summary>
-    public static readonly IReadOnlyDictionary<(string Model, string Quality, string Size), ImagePricing> ImagePrices = new Dictionary<(string, string, string), ImagePricing>(ImageKeyComparer.Instance)
-    {
+    public static readonly IReadOnlyDictionary<(string Model, string Quality, string Size), ImagePricing> ImagePrices =
+        new Dictionary<(string, string, string), ImagePricing>(ImageKeyComparer.Instance)
+        {
         [("gpt-image-1", "low", "1024x1024")] = new(0.011m),
         [("gpt-image-1", "low", "1024x1536")] = new(0.016m),
         [("gpt-image-1", "low", "1536x1024")] = new(0.016m),
@@ -52,7 +54,7 @@ public static class ModelPricingTable
         [("gpt-image-1.5", "high", "1024x1024")] = new(0.133m),
         [("gpt-image-1.5", "high", "1024x1536")] = new(0.2m),
         [("gpt-image-1.5", "high", "1536x1024")] = new(0.2m),
-    };
+    }.AsReadOnly();
 
     /// <summary>Estimates the USD cost for a single text-model API call based on token counts. Returns null for unknown models.</summary>
     public static decimal? EstimateCost(string provider, string model, int inputTokens, int outputTokens, int? cacheWriteTokens = null, int? cacheReadTokens = null)
