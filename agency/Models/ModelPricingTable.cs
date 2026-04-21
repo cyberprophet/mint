@@ -37,13 +37,20 @@ public static class ModelPricingTable
             [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
 
             // --- Image models (Image modality token rates) ---
-            // Scope: text-prompt-to-image generation only. `InputUsdPer1M`
-            // is OpenAI's **text input** rate, not the image-input rate
-            // (which applies to source-image tokens when using image edit
-            // / inpainting endpoints). P5's current flow is prompt-only —
-            // if image editing is wired up later, add separate buckets.
+            // `InputUsdPer1M` uses OpenAI's **image-input** rate (the higher
+            // of the two input rates OpenAI publishes). OpenAI reports
+            // `input_tokens` as a single combined count that can include
+            // either text prompt tokens or source-image tokens, and the
+            // ApiUsageEvent surface offers no way to split them per call.
+            // Using the higher rate:
+            //   - matches image-edit / inpainting flows exactly (e.g.
+            //     GptService.StudioMint's GenerateImageEditsAsync path
+            //     which sends a source image),
+            //   - conservatively over-estimates text-only generation
+            //     (GptService.Image's GenerateImagesAsync path), which
+            //     is acceptable for a billing-safe fail-closed estimator.
             // Output = generated image tokens; count varies by quality × size.
-            [("openai", "gpt-image-1")]      = new(5.00m, 40.00m),
+            [("openai", "gpt-image-1")]      = new(10.00m, 40.00m),
             [("openai", "gpt-image-1.5")]    = new(8.00m, 32.00m),
             [("openai", "gpt-image-1-mini")] = new(2.50m, 8.00m),
         }.AsReadOnly();

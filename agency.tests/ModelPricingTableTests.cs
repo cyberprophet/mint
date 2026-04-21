@@ -18,7 +18,7 @@ public class ModelPricingTableTests
     }
 
     [Theory]
-    [InlineData("openai", "gpt-image-1", 1_000_000, 1_000_000, 5.00 + 40.00)]
+    [InlineData("openai", "gpt-image-1", 1_000_000, 1_000_000, 10.00 + 40.00)]
     [InlineData("openai", "gpt-image-1.5", 1_000_000, 1_000_000, 8.00 + 32.00)]
     [InlineData("openai", "gpt-image-1-mini", 1_000_000, 1_000_000, 2.50 + 8.00)]
     public void EstimateCost_ImageModels_UsesImageModalityTokenRates(string provider, string model, int input, int output, double expected)
@@ -44,9 +44,9 @@ public class ModelPricingTableTests
         Assert.NotNull(cost);
 
         // Output: 4160/1M × $40 = $0.16640
-        // Input:  200/1M × $5  = $0.00100
-        // Total: $0.16740
-        Assert.Equal(0.16740m, cost.Value);
+        // Input:  200/1M × $10 = $0.00200
+        // Total: $0.16840
+        Assert.Equal(0.16840m, cost.Value);
     }
 
     [Fact]
@@ -84,8 +84,8 @@ public class ModelPricingTableTests
         // Text: 5000/1M × 2.50 + 8000/1M × 15.00 = 0.0125 + 0.12 = 0.1325
         Assert.Equal(0.1325m, textCost.Value);
 
-        // Image: 200/1M × 5.00 + 4160/1M × 40.00 = 0.001 + 0.1664 = 0.1674
-        Assert.Equal(0.1674m, imageCost.Value);
+        // Image: 200/1M × 10.00 + 4160/1M × 40.00 = 0.002 + 0.1664 = 0.1684
+        Assert.Equal(0.1684m, imageCost.Value);
     }
 
     [Fact]

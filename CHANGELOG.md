@@ -13,12 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.15.1] — 2026-04-21
 
 ### Fixed
-- **`ModelPricingTable` image pricing restored.** The 0.15.0 NuGet DLL shipped only the per-image lookup from the initial pricing commit (62253fd) — a follow-up on 2026-04-17 that unified image rates to token-based and added `gpt-image-1-mini` never left this repo because `<Version>` was never bumped, so `dotnet nuget push` silently rejected "package already exists". Prod (P5) therefore returned `null` from `EstimateCost` for `gpt-image-1-mini`, writing `EstimatedCostUsd = NULL` into `ApiUsageLog` for every image call from 2026-04-18 onward. 0.15.1 actually publishes the unified table.
-- **`gpt-image-1` text-input rate corrected $10.00 → $5.00 per 1M tokens** after re-verifying against OpenAI's current public pricing page. Output rate ($40.00 / 1M) unchanged.
+- **`ModelPricingTable` image pricing restored.** The 0.15.0 NuGet DLL shipped only the per-image lookup from the initial pricing commit (62253fd) — a follow-up on 2026-04-17 that unified image rates to token-based and added `gpt-image-1-mini` never left this repo because `<Version>` was never bumped, so `dotnet nuget push` silently rejected "package already exists". Prod (P5) therefore returned `null` from `EstimateCost` for `gpt-image-1-mini`, writing `EstimatedCostUsd = NULL` into `ApiUsageLog` for every image call from 2026-04-18 onward. 0.15.1 actually publishes the table.
 
 ### Changed
 - **`PricingVersion` bumped 3 → 4** (per the contract for any pricing entry change).
-- Comment block around the image-model entries narrowed: the estimator explicitly covers **text-prompt-to-image generation only**; image-edit / inpainting source-image tokens are a different OpenAI rate and are out of scope until that flow is wired up in P5.
+- Comment around the image-model entries updated to be explicit that `InputUsdPer1M` uses **OpenAI's image-input rate** (the higher of the two input buckets OpenAI publishes) rather than the text-input rate. OpenAI returns `input_tokens` as a single combined count that `ApiUsageEvent` has no way to split per call; `GptService.StudioMint.GenerateImageEditsAsync` (Intent 031) ships a source image with each call and is billed at the image-input rate. Using the higher rate keeps the estimator fail-closed — text-only generation is mildly over-estimated, image-edit flows are priced accurately.
+
+### Known limitation
+- A future release will split text-input vs image-input tokens by reading `input_tokens_details.{text_tokens, image_tokens}` (which OpenAI exposes per call) into separate `ApiUsageEvent` fields and a two-bucket `ModelPricing` record. That will let text-only generation stop over-estimating without the image-edit flow starting to under-estimate. Deferred from this release because it touches `ApiUsageLog` schema + requires a DB migration in P5.
 
 ---
 
