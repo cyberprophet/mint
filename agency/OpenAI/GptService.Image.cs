@@ -54,11 +54,19 @@ public partial class GptService
                 var sizeName = size == GeneratedImageSize.W1024xH1536 ? "1024x1536"
                     : size == GeneratedImageSize.W1536xH1024 ? "1536x1024"
                     : "1024x1024";
+                // InputTokenDetails.{TextTokenCount, ImageTokenCount} is
+                // OpenAI's per-call split. Pure prompt-to-image generation
+                // has ImageTokenCount == 0 (no source image sent);
+                // ApiUsageEvent carries them separately so
+                // ModelPricingTable can bill each bucket at its own rate.
+                var textInput = (int)(usage?.InputTokenDetails?.TextTokenCount ?? usage?.InputTokenCount ?? 0);
+                var imageInput = (int)(usage?.InputTokenDetails?.ImageTokenCount ?? 0);
                 onUsage(new ApiUsageEvent(ProviderName, imageModel ?? "gpt-image-1",
-                    (int)(usage?.InputTokenCount ?? 0),
+                    textInput,
                     (int)(usage?.OutputTokenCount ?? 0),
                     "image", LatencyMs: (int)sw.ElapsedMilliseconds,
-                    ImageQuality: qualityName, ImageSize: sizeName));
+                    ImageQuality: qualityName, ImageSize: sizeName,
+                    ImageInputTokens: imageInput > 0 ? imageInput : null));
             }
 
             return result.Value[0].ImageBytes as T;

@@ -10,17 +10,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.15.1] — 2026-04-21
+## [0.15.3] — 2026-04-21
 
 ### Fixed
-- **`ModelPricingTable` image pricing restored.** The 0.15.0 NuGet DLL shipped only the per-image lookup from the initial pricing commit (62253fd) — a follow-up on 2026-04-17 that unified image rates to token-based and added `gpt-image-1-mini` never left this repo because `<Version>` was never bumped, so `dotnet nuget push` silently rejected "package already exists". Prod (P5) therefore returned `null` from `EstimateCost` for `gpt-image-1-mini`, writing `EstimatedCostUsd = NULL` into `ApiUsageLog` for every image call from 2026-04-18 onward. 0.15.1 actually publishes the table.
+- **Image calls can now be priced accurately per OpenAI's published dual-rate model** (supersedes 0.15.1/0.15.2 which only republished the missing `gpt-image-1-mini` entry). OpenAI bills two separate input rates per image model — text-input (prompt tokens) and image-input (source-image tokens for edits) — which 0.15.0/0.15.1's single-bucket `InputUsdPer1M` could not distinguish, so every image call was either over- or under-charged depending on the flow. See **Changed** below for the new schema.
 
 ### Changed
-- **`PricingVersion` bumped 3 → 4** (per the contract for any pricing entry change).
-- Comment around the image-model entries updated to be explicit that `InputUsdPer1M` uses **OpenAI's image-input rate** (the higher of the two input buckets OpenAI publishes) rather than the text-input rate. OpenAI returns `input_tokens` as a single combined count that `ApiUsageEvent` has no way to split per call; `GptService.StudioMint.GenerateImageEditsAsync` (Intent 031) ships a source image with each call and is billed at the image-input rate. Using the higher rate keeps the estimator fail-closed — text-only generation is mildly over-estimated, image-edit flows are priced accurately.
+- **`ModelPricing` record gains `ImageInputUsdPer1M` and `ImageCacheReadUsdPer1M`** (both nullable `decimal?`, default null). Text models leave them null; image models fill both buckets. Also reorders existing positional params — `CacheWriteUsdPer1M` / `CacheReadUsdPer1M` kept in the same slots so Anthropic call sites don't break.
+- **`EstimateCost(provider, model, inputTokens, outputTokens, ...)` gains `imageInputTokens` and `imageCacheReadTokens` optional parameters.** When present, the image rates are multiplied with those token counts and added to the total. Omitting them preserves pre-0.15.2 behavior for text-model callers.
+- **`ApiUsageEvent` gains `ImageInputTokens` and `ImageCacheReadTokens`** (both nullable int). `InputTokens` is now semantically the **text-input** portion for image models (source-image tokens go in `ImageInputTokens`). Text models are unchanged.
+- **`GptService.Image.GenerateImageAsync` and `GptService.StudioMint.GenerateImageEditsAsync` read OpenAI's `ImageInputTokenUsageDetails.{TextTokenCount, ImageTokenCount}`** and populate `ApiUsageEvent.InputTokens` / `ApiUsageEvent.ImageInputTokens` separately.
+- **Pricing table (image models) re-verified 2026-04-21 against OpenAI's public pricing page:**
 
-### Known limitation
-- A future release will split text-input vs image-input tokens by reading `input_tokens_details.{text_tokens, image_tokens}` (which OpenAI exposes per call) into separate `ApiUsageEvent` fields and a two-bucket `ModelPricing` record. That will let text-only generation stop over-estimating without the image-edit flow starting to under-estimate. Deferred from this release because it touches `ApiUsageLog` schema + requires a DB migration in P5.
+  | Model              | Text input | Image input | Output | Cached text | Cached image |
+  |--------------------|------------|-------------|--------|-------------|--------------|
+  | `gpt-image-1`      | $5.00      | $10.00      | $40.00 | $1.25       | $2.50        |
+  | `gpt-image-1.5`    | $5.00      | $8.00       | $32.00 | $1.25       | $2.00        |
+  | `gpt-image-1-mini` | $2.00      | $2.50       | $8.00  | $0.20       | $0.25        |
+
+  All rates are USD per 1M tokens.
+- **`PricingVersion` 3 → 4.**
+
+### Notes
+- `ApiUsageLog` (P5 schema) remains unchanged — the text/image split is computed at write time into `EstimatedCostUsd`, not stored. `InputTokens` on existing image rows is combined (old semantics); on new image rows it becomes text-only, which only matters if someone queries per-token breakdowns (no current consumer does). A proper schema-level split would require a DB migration and is out of scope here.
+
+---
+
+## [0.15.2] — 2026-04-21 (superseded by 0.15.3)
+
+Repack of 0.15.1 with the version field bumped; same single-bucket schema. Superseded before any consumer could adopt it.
+
+## [0.15.1] — 2026-04-21 (superseded by 0.15.3)
+
+Initial republish attempt that only corrected the "package already exists" skip from 2026-04-17's e962f80 commit; shipped the single-bucket image entries unchanged and used $10 input as a conservative approximation of OpenAI's dual rates. 0.15.3 supersedes with proper text-input / image-input separation.
 
 ---
 

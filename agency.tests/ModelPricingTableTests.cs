@@ -18,10 +18,11 @@ public class ModelPricingTableTests
     }
 
     [Theory]
-    [InlineData("openai", "gpt-image-1", 1_000_000, 1_000_000, 10.00 + 40.00)]
-    [InlineData("openai", "gpt-image-1.5", 1_000_000, 1_000_000, 8.00 + 32.00)]
-    [InlineData("openai", "gpt-image-1-mini", 1_000_000, 1_000_000, 2.50 + 8.00)]
-    public void EstimateCost_ImageModels_UsesImageModalityTokenRates(string provider, string model, int input, int output, double expected)
+    // Text-only input (pure generation). InputUsdPer1M applies; ImageInput is 0.
+    [InlineData("openai", "gpt-image-1", 1_000_000, 1_000_000, 5.00 + 40.00)]
+    [InlineData("openai", "gpt-image-1.5", 1_000_000, 1_000_000, 5.00 + 32.00)]
+    [InlineData("openai", "gpt-image-1-mini", 1_000_000, 1_000_000, 2.00 + 8.00)]
+    public void EstimateCost_ImageModels_TextOnly_UsesTextInputRate(string provider, string model, int input, int output, double expected)
     {
         var cost = ModelPricingTable.EstimateCost(provider, model, input, output);
 
@@ -29,24 +30,65 @@ public class ModelPricingTableTests
         Assert.Equal((decimal)expected, cost.Value);
     }
 
+    [Theory]
+    // Image-edit call (StudioMint): all three buckets filled. Rates multiply
+    // each token count by its respective per-1M rate.
+    // gpt-image-1:      1M text × $5  + 1M image × $10 + 1M out × $40 = $55
+    // gpt-image-1.5:    1M text × $5  + 1M image × $8  + 1M out × $32 = $45
+    // gpt-image-1-mini: 1M text × $2  + 1M image × $2.5 + 1M out × $8 = $12.5
+    [InlineData("openai", "gpt-image-1", 1_000_000, 1_000_000, 1_000_000, 5.00 + 10.00 + 40.00)]
+    [InlineData("openai", "gpt-image-1.5", 1_000_000, 1_000_000, 1_000_000, 5.00 + 8.00 + 32.00)]
+    [InlineData("openai", "gpt-image-1-mini", 1_000_000, 1_000_000, 1_000_000, 2.00 + 2.50 + 8.00)]
+    public void EstimateCost_ImageModels_WithSourceImage_UsesBothInputRates(
+        string provider, string model, int textInput, int imageInput, int output, double expected)
+    {
+        var cost = ModelPricingTable.EstimateCost(
+            provider, model, textInput, output,
+            imageInputTokens: imageInput);
+
+        Assert.NotNull(cost);
+        Assert.Equal((decimal)expected, cost.Value);
+    }
+
     /// <summary>
     /// Verify that token-based image pricing produces values consistent with
-    /// OpenAI's published per-image prices (which are precomputed from tokens).
-    /// high quality 1024×1024 ≈ 4,160 output tokens → 4160/1M × $40 = $0.1664.
+    /// OpenAI's published per-image prices (precomputed from tokens).
     /// </summary>
     [Fact]
     public void EstimateCost_ImageGeneration_MatchesPerImagePrice()
     {
-        // high quality 1024×1024: ~4,160 output tokens, ~200 text input tokens
+        // High-quality 1024×1024 pure generation:
+        //   ~4,160 output tokens, ~200 text prompt tokens, 0 source-image tokens.
         var cost = ModelPricingTable.EstimateCost("openai", "gpt-image-1",
             inputTokens: 200, outputTokens: 4_160);
 
         Assert.NotNull(cost);
 
-        // Output: 4160/1M × $40 = $0.16640
-        // Input:  200/1M × $10 = $0.00200
-        // Total: $0.16840
-        Assert.Equal(0.16840m, cost.Value);
+        // Text input: 200/1M × $5 = $0.00100
+        // Output:     4160/1M × $40 = $0.16640
+        // Total: $0.16740
+        Assert.Equal(0.16740m, cost.Value);
+    }
+
+    [Fact]
+    public void EstimateCost_ImageEdit_IncludesImageInputAtHigherRate()
+    {
+        // StudioMint-style edit call: 1024×1024 source image → ~1,568 image
+        // input tokens, plus a ~100-token text prompt, and a ~4,160-token
+        // generated output.
+        var cost = ModelPricingTable.EstimateCost(
+            "openai", "gpt-image-1",
+            inputTokens: 100,
+            outputTokens: 4_160,
+            imageInputTokens: 1_568);
+
+        Assert.NotNull(cost);
+
+        // Text:  100  / 1M × $5  = $0.0005
+        // Image: 1568 / 1M × $10 = $0.01568
+        // Out:   4160 / 1M × $40 = $0.16640
+        // Total: $0.18258
+        Assert.Equal(0.18258m, cost.Value);
     }
 
     [Fact]
@@ -84,8 +126,9 @@ public class ModelPricingTableTests
         // Text: 5000/1M × 2.50 + 8000/1M × 15.00 = 0.0125 + 0.12 = 0.1325
         Assert.Equal(0.1325m, textCost.Value);
 
-        // Image: 200/1M × 10.00 + 4160/1M × 40.00 = 0.002 + 0.1664 = 0.1684
-        Assert.Equal(0.1684m, imageCost.Value);
+        // Text input: 200/1M × $5 + 4160/1M × $40 = 0.001 + 0.1664 = 0.1674
+        // (No source image in this event — uses text-input rate only.)
+        Assert.Equal(0.1674m, imageCost.Value);
     }
 
     [Fact]

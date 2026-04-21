@@ -83,14 +83,29 @@ public partial class GptService
             if (onUsage is not null)
             {
                 var usage = result.Value.Usage;
+                // StudioMint ships a source image per call, so
+                // InputTokenDetails.ImageTokenCount is the key piece
+                // that decides the bulk of the cost (billed at the
+                // model's image-input rate). Feed it to ApiUsageEvent
+                // separately from the text-prompt tokens so
+                // ModelPricingTable can price each bucket at its own rate.
+                var textInput = (int)(usage?.InputTokenDetails?.TextTokenCount ?? 0);
+                var imageInput = (int)(usage?.InputTokenDetails?.ImageTokenCount ?? 0);
+                // Fallback: if the SDK response didn't populate the
+                // detail struct, treat the combined count as all-image
+                // (conservative for this edit flow where the image
+                // portion dominates).
+                if (textInput == 0 && imageInput == 0)
+                    imageInput = (int)(usage?.InputTokenCount ?? 0);
                 onUsage(new ApiUsageEvent(
                     "openai",
                     imageModel ?? "gpt-image-1",
-                    (int)(usage?.InputTokenCount ?? 0),
+                    textInput,
                     (int)(usage?.OutputTokenCount ?? 0),
                     $"studio-mint:{shot.Id}",
                     LatencyMs: (int)sw.ElapsedMilliseconds,
-                    ImageQuality: "high", ImageSize: "1024x1024"));
+                    ImageQuality: "high", ImageSize: "1024x1024",
+                    ImageInputTokens: imageInput > 0 ? imageInput : null));
             }
 
             return new StudioMintShot(index, shot.Id, result.Value[0].ImageBytes);
