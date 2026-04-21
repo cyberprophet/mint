@@ -70,6 +70,8 @@ public static class ModelPricingTable
         }.AsReadOnly();
 
     /// <summary>Estimates the USD cost for a single API call based on token counts. Returns null for unknown models.</summary>
+    /// <param name="provider">Provider key in the pricing table (e.g. <c>"openai"</c>, <c>"anthropic"</c>).</param>
+    /// <param name="model">Model key in the pricing table (e.g. <c>"gpt-5.4"</c>, <c>"gpt-image-1"</c>).</param>
     /// <param name="inputTokens">Text-input tokens (prompt tokens). For image models this is the <c>TextTokens</c> portion of <c>ImageInputTokenUsageDetails</c>.</param>
     /// <param name="outputTokens">Output tokens (generated image tokens for image models; completion tokens for text models).</param>
     /// <param name="cacheWriteTokens">Anthropic-only cache-creation tokens.</param>
