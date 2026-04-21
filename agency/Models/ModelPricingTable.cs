@@ -20,11 +20,11 @@ public record ModelPricing(decimal InputUsdPer1M, decimal OutputUsdPer1M, decima
 public static class ModelPricingTable
 {
     /// <summary>Increment when pricing entries are added, removed, or changed.</summary>
-    public const int PricingVersion = 3;
+    public const int PricingVersion = 4;
 
     /// <summary>
     /// Known model prices keyed by (provider, model) tuple. Lookups are case-insensitive.
-    /// Image models use Image modality rates (verified 2026-04-17 against OpenAI pricing page).
+    /// Image models use Image modality rates (verified 2026-04-21 against OpenAI pricing page).
     /// </summary>
     public static readonly IReadOnlyDictionary<(string Provider, string Model), ModelPricing> Prices =
         new Dictionary<(string, string), ModelPricing>(ProviderModelComparer.Instance)
@@ -39,7 +39,15 @@ public static class ModelPricingTable
             // --- Image models (Image modality token rates) ---
             // Input  = image-input rate (covers both text prompt tokens and source-image tokens)
             // Output = image-output rate (generated image tokens; count varies by quality × size)
-            [("openai", "gpt-image-1")]      = new(10.00m, 40.00m),
+            //
+            // PricingVersion 4 (2026-04-21): gpt-image-1 input rate corrected
+            // from $10.00 to $5.00 after re-verifying against OpenAI's current
+            // pricing page (cross-checked developers.openai.com + per-image
+            // equivalents). gpt-image-1-mini entry remains at the values
+            // added in PricingVersion 3 but was missing from the published
+            // v0.15.0 NuGet DLL, leaving image calls with NULL EstimatedCostUsd
+            // in ApiUsageLog (2026-04-18 onward). This bump republishes.
+            [("openai", "gpt-image-1")]      = new(5.00m, 40.00m),
             [("openai", "gpt-image-1.5")]    = new(8.00m, 32.00m),
             [("openai", "gpt-image-1-mini")] = new(2.50m, 8.00m),
         }.AsReadOnly();
