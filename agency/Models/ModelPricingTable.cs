@@ -37,16 +37,12 @@ public static class ModelPricingTable
             [("anthropic", "claude-haiku-4-5-20251001")] = new(1.00m, 5.00m, 1.25m, 0.10m),
 
             // --- Image models (Image modality token rates) ---
-            // Input  = image-input rate (covers both text prompt tokens and source-image tokens)
-            // Output = image-output rate (generated image tokens; count varies by quality × size)
-            //
-            // PricingVersion 4 (2026-04-21): gpt-image-1 input rate corrected
-            // from $10.00 to $5.00 after re-verifying against OpenAI's current
-            // pricing page (cross-checked developers.openai.com + per-image
-            // equivalents). gpt-image-1-mini entry remains at the values
-            // added in PricingVersion 3 but was missing from the published
-            // v0.15.0 NuGet DLL, leaving image calls with NULL EstimatedCostUsd
-            // in ApiUsageLog (2026-04-18 onward). This bump republishes.
+            // Scope: text-prompt-to-image generation only. `InputUsdPer1M`
+            // is OpenAI's **text input** rate, not the image-input rate
+            // (which applies to source-image tokens when using image edit
+            // / inpainting endpoints). P5's current flow is prompt-only —
+            // if image editing is wired up later, add separate buckets.
+            // Output = generated image tokens; count varies by quality × size.
             [("openai", "gpt-image-1")]      = new(5.00m, 40.00m),
             [("openai", "gpt-image-1.5")]    = new(8.00m, 32.00m),
             [("openai", "gpt-image-1-mini")] = new(2.50m, 8.00m),

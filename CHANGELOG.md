@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.15.1] — 2026-04-21
+
+### Fixed
+- **`ModelPricingTable` image pricing restored.** The 0.15.0 NuGet DLL shipped only the per-image lookup from the initial pricing commit (62253fd) — a follow-up on 2026-04-17 that unified image rates to token-based and added `gpt-image-1-mini` never left this repo because `<Version>` was never bumped, so `dotnet nuget push` silently rejected "package already exists". Prod (P5) therefore returned `null` from `EstimateCost` for `gpt-image-1-mini`, writing `EstimatedCostUsd = NULL` into `ApiUsageLog` for every image call from 2026-04-18 onward. 0.15.1 actually publishes the unified table.
+- **`gpt-image-1` text-input rate corrected $10.00 → $5.00 per 1M tokens** after re-verifying against OpenAI's current public pricing page. Output rate ($40.00 / 1M) unchanged.
+
+### Changed
+- **`PricingVersion` bumped 3 → 4** (per the contract for any pricing entry change).
+- Comment block around the image-model entries narrowed: the estimator explicitly covers **text-prompt-to-image generation only**; image-edit / inpainting source-image tokens are a different OpenAI rate and are out of scope until that flow is wired up in P5.
+
+---
+
 ## [0.15.0] — 2026-04-17
 
 ### Added
