@@ -289,7 +289,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
 
     static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
-    VisualDnaResult? TryParseVisualDna(string raw)
+    internal VisualDnaResult? TryParseVisualDna(string raw)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
@@ -305,7 +305,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         }
     }
 
-    ProductInfoResult? TryParseProductInfo(string raw, IReadOnlyList<ProductInfoDocument> documents)
+    internal ProductInfoResult? TryParseProductInfo(string raw, IReadOnlyList<ProductInfoDocument> documents)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
@@ -330,7 +330,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         }
     }
 
-    ReferenceLinkAnalysis? TryParseReferenceLinkAnalysis(string raw)
+    internal ReferenceLinkAnalysis? TryParseReferenceLinkAnalysis(string raw)
     {
         var json = ExtractJsonBlock(raw);
         if (json is null) return null;
