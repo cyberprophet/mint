@@ -14,18 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **`StudioMintShotDefinition` promoted from `internal` to `public`** (Intent 038 Phase B PR-A). P5 can now construct shot definitions from its own MD files (`shot-cutout.md` / `shot-styled.md` / `shot-detail.md` / `shot-special.md`) and pass them directly to `GenerateStudioMintAsync` without depending on the internal v1 defaults.
-- **`IReadOnlyList<StudioMintShotDefinition>? shots` optional parameter added to `GenerateStudioMintAsync`**, inserted between `request` and `cancellationToken`. When `null` (or omitted), the method falls back to the internal `StudioMintShotTypes.All` v1 list for backward compatibility. P5 should always pass an explicit shot list after adopting 0.16.0; the fallback will be removed in 0.17.0 once all consumers migrate.
-- **Backward-compat bridge:** Existing callers that use the named-argument form `GenerateStudioMintAsync(basePrompt, request, cancellationToken: token)` continue to compile and run correctly — `shots` defaults to `null`, triggering the internal fallback.
+- **`IReadOnlyList<StudioMintShotDefinition>? shots` optional parameter added to `GenerateStudioMintAsync`**, placed **last** in the parameter list (after `cancellationToken` and `onUsage`) so existing positional callers — `GenerateStudioMintAsync(basePrompt, request, ct)` — continue to compile and bind `ct` to the `cancellationToken` slot. When `null` (or omitted), the method falls back to the internal `StudioMintShotTypes.All` v1 list for backward compatibility. P5 should always pass an explicit shot list after adopting 0.16.0; the fallback will be removed in 0.17.0 once all consumers migrate.
+- **`StudioMintShotDefinition` constructor validation.** `Id`, `Label`, and `Direction` are each guarded with `ArgumentException.ThrowIfNullOrWhiteSpace`, so external consumers cannot ship malformed shot definitions that would silently corrupt the generated prompt.
 
 ### Changed
 - `StudioMintShotTypes.All` remains `internal`. P5 does not reference it directly; it passes its own shot definitions.
 
 ### Notes
-- **Breaking change surface is zero for existing callers.** The only signature change is a new optional parameter inserted before the existing optional `cancellationToken`. Calls that use positional arguments will bind correctly; calls that name `cancellationToken:` explicitly will also bind correctly.
+- **Breaking change surface is zero for existing callers.** The new optional `shots` parameter is last in the signature, so both positional calls (`..., ct)`) and named-arg calls (`cancellationToken: token`) continue to bind correctly.
 - The rev.3 industry 4-cut IDs (`cutout` / `styled` / `detail` / `special`) replace the v1 IDs (`hero-front` / `lifestyle` / `detail-macro` / `alt-angle`) at the P5 level; P7 is agnostic to the specific IDs.
 
 ### Tests
-- **`StudioMintShotsParameterTests.cs`** adds 14 tests covering: public visibility of the record, external construction, record equality, `BuildShotPrompt` field flow for custom shots, null-shots fallback validation, empty-list behavior, `StudioMintResult` vacuous-complete for zero shots, and rev.3 industry pack shape assertions (`[Theory]` over all 4 cut slots).
+- **`StudioMintShotsParameterTests.cs`** covers public visibility of the record, external construction, record equality, `BuildShotPrompt` field flow for custom shots, null-shots fallback validation, empty-list behavior, `StudioMintResult` vacuous-complete for zero shots, rev.3 industry pack shape assertions (`[Theory]` over all 4 cut slots), constructor-validation for each of `Id` / `Label` / `Direction` (`[Theory]` with null / empty / whitespace), and a positional-call regression test (`..., ct)` form). Suite: 618 → 684 passing.
 
 ---
 

@@ -210,6 +210,65 @@ public class StudioMintShotsParameterTests
         Assert.Equal(expectedLabel, pack[index].Label);
     }
 
+    // ─── 6. Record constructor validation (0.16.0, cyberchacha P3) ────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void StudioMintShotDefinition_NullOrWhitespaceId_Throws(string? id)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new StudioMintShotDefinition(id!, Label: "누끼컷", Direction: "Dir."));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void StudioMintShotDefinition_NullOrWhitespaceLabel_Throws(string? label)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new StudioMintShotDefinition(Id: "cutout", label!, Direction: "Dir."));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void StudioMintShotDefinition_NullOrWhitespaceDirection_Throws(string? direction)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new StudioMintShotDefinition(Id: "cutout", Label: "누끼컷", direction!));
+    }
+
+    // ─── 7. Positional call-site compat regression (P1 MintSurf / Codex) ──────
+
+    [Fact]
+    public async Task GenerateStudioMintAsync_PositionalCancellationToken_StillCompilesAndBinds()
+    {
+        // Regression guard for the P1 review feedback on PR #91.
+        // After the 0.16.0 parameter reorder (shots moved to the LAST slot), a purely
+        // positional call — GenerateStudioMintAsync(basePrompt, request, ct) — must
+        // continue to compile and bind `ct` to the `cancellationToken` parameter,
+        // not to `shots`. If this test's source compiles at all, the contract holds;
+        // we additionally execute it to catch any runtime dispatch regression.
+        var svc = CreateService();
+        var request = new StudioMintRequest(
+            "user-1",
+            BinaryData.FromBytes([0x89, 0x50, 0x4E, 0x47]),
+            "product.png");
+        using var cts = new CancellationTokenSource();
+
+        // Positional form — no named args. This is the call shape external NuGet
+        // consumers may use. Must compile; `cts.Token` binds to cancellationToken.
+        var ex = await Record.ExceptionAsync(
+            () => svc.GenerateStudioMintAsync("test base prompt", request, cts.Token));
+
+        Assert.False(ex is ArgumentException,
+            $"Positional call must not cause ArgumentException; got {ex?.GetType().Name ?? "null"}");
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     /// <summary>
