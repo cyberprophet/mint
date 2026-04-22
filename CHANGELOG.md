@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.15.5] — 2026-04-22
+
+### Fixed
+- **`ApiUsageEvent.RetryCount` is now populated by every retry loop that emits usage telemetry.** `GptService.GenerateBlueprintAsync`, `GptService.GenerateDesignHtmlAsync`, and `GptService.GenerateStoryboardAsync` previously emitted usage events with `RetryCount = null`, so P5 analytics had no signal for how often a provider call retried before succeeding. Each emitted event now carries the 0-indexed retry count for the attempt that produced it: `RetryCount = 0` means the first attempt, `RetryCount = 1` means one prior retry occurred, and so on (up to `maxRetries - 1`). Unblocks Intent 037 Phase A retry analytics. Closes #85.
+
+### Tests
+- **`RetryCountEmissionTests.cs`** adds 9 tests × 3 scenarios (first-try success, second-try success after retry, all-three-attempts-fail) across Blueprint, DesignHtml, and Storyboard. Each test drives an NSubstitute-backed `ChatClient` through the real retry loop and asserts the full `RetryCount` sequence on the emitted events. Placeholder `"test-prompt"` strings only per ADR-013 — no real prompt content embedded. Suite: 609 → 618 passing.
+
+---
+
 ## [0.15.4] — 2026-04-22
 
 ### Fixed

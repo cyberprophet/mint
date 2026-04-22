@@ -104,7 +104,8 @@ public partial class GptService
 
             if (onUsage is not null && completion.Usage is { } usage)
             {
-                onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount, "storyboard"));
+                onUsage(new ApiUsageEvent(ProviderName, model, usage.InputTokenCount, usage.OutputTokenCount, "storyboard",
+                    RetryCount: attempt));
             }
 
             if (completion.FinishReason == ChatFinishReason.ToolCalls)
