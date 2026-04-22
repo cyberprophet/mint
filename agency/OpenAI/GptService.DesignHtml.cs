@@ -29,6 +29,8 @@ public partial class GptService
         CancellationToken cancellationToken = default,
         Action<ApiUsageEvent>? onUsage = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+
         var chatClient = GetChatClient(model);
 
         var renderAndPreviewTool = ChatTool.CreateFunctionTool(
