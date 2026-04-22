@@ -33,13 +33,12 @@ public class MyService(GptService gpt)
 ## Title Generation
 
 ```csharp
-var title = await gpt.GenerateTitleAsync(conversationText, cancellationToken);
+var title = await gpt.GenerateTitleAsync(systemPrompt, conversationText, cancellationToken: ct);
 // Returns null if generation fails or produces empty content
-// Uses gpt-5-nano with embedded PageMint-tailored system prompt
-// Titles are capped at 50 characters
+// Uses gpt-5-nano by default; titles are capped at 50 characters
 ```
 
-The system prompt is stored as an embedded resource under `Prompts/title-system.md`.
+Per [ADR-013](https://github.com/cyberprophet/mint), all agent system prompts are owned by the consumer (page-mint-server) and injected at the call site. This package ships no prompt content — callers must supply `systemPrompt` to every generation method.
 
 ## Releases
 
