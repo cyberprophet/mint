@@ -74,24 +74,11 @@ public class GptServiceMultiProviderTests
         Assert.Equal(providerName, svc.ProviderName);
     }
 
-    [Fact]
-    public void CustomEndpointConstructor_ProviderName_FlowsIntoTelemetry()
-    {
-        // Regression guard: the ProviderName property is the single source of truth
-        // for the "Provider" field emitted on ApiUsageEvent. If a future refactor
-        // breaks the flow (e.g., hard-codes "openai" in a service method), the
-        // constructor test alone is insufficient. This test documents the intent.
-        var options = new OpenAIClientOptions
-        {
-            Endpoint = new Uri("https://api.groq.com/openai/v1")
-        };
-
-        using var svc = new GptService(
-            NullLogger<GptService>.Instance, "test-key", options,
-            providerName: "groq");
-
-        Assert.Equal("groq", svc.ProviderName);
-    }
+    // Note: end-to-end verification that ProviderName flows into the
+    // emitted ApiUsageEvent.Provider field is tracked in issue #85. The
+    // constructor-level tests above pin the property surface only; the
+    // telemetry-emission contract needs an HTTP-mocked provider invocation
+    // and belongs in a separate fixture.
 
     [Fact]
     public void Service_ImplementsAllThreeProviderInterfaces()
