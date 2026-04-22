@@ -84,6 +84,71 @@ public class PromptValidationTests
             () => svc.ResearchProductAsync(badPrompt!, "product info", [], category: null));
     }
 
+    // ─── GptService — GenerateBlueprintAsync ─────────────────────────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GptService_BlueprintAsync_BlankSystemPrompt_Throws(string? badPrompt)
+    {
+        using var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
+        var context = new BlueprintContext(
+            StoryboardJson: "{}",
+            VisualDna: null,
+            BriefJson: null,
+            Feedback: null);
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => svc.GenerateBlueprintAsync(badPrompt!, context));
+    }
+
+    // ─── GptService — GenerateDesignHtmlAsync ────────────────────────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GptService_DesignHtmlAsync_BlankSystemPrompt_Throws(string? badPrompt)
+    {
+        using var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
+        var blueprint = new BlueprintResult(
+            PageDesignSystem: new PageDesignSystem("mood", ["#000"], "background", "scale"),
+            VisualBlocks: [],
+            Assumptions: null);
+        var storyboard = new StoryboardResult(Sections: [], CtaText: "cta");
+        var context = new DesignHtmlContext(
+            Blueprint: blueprint,
+            Storyboard: storyboard,
+            Brief: null,
+            Feedback: null);
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => svc.GenerateDesignHtmlAsync(badPrompt!, context));
+    }
+
+    // ─── GptService — GenerateStoryboardAsync ────────────────────────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GptService_StoryboardAsync_BlankSystemPrompt_Throws(string? badPrompt)
+    {
+        using var svc = new GptService(NullLogger<GptService>.Instance, "test-key");
+        var context = new StoryboardContext(
+            Brief: "{}",
+            MarketContext: "{}",
+            VisualDna: null,
+            TargetLanguage: "en",
+            ForbiddenCliches: null,
+            ProductType: null,
+            Feedback: null);
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => svc.GenerateStoryboardAsync(badPrompt!, context));
+    }
+
     // ─── GeminiProvider — prompt validation ──────────────────────────────────
 
     [Theory]
