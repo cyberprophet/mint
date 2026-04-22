@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.15.4] — 2026-04-22
+
+### Fixed
+- **Prompt-ownership guardrail (ADR-013) applied to three missed entry points.** `GptService.Blueprint*`, `GptService.DesignHtml*`, and `GptService.Storyboard*` now validate their `systemPrompt` parameter with `ArgumentException.ThrowIfNullOrWhiteSpace` at method entry, matching the six peer methods (`GenerateTitleAsync`, `AnalyzeImageAsync`, `ResearchProductAsync`, and Gemini counterparts). Previously null / empty / whitespace prompts would be forwarded to the provider instead of failing fast on the consumer side. Closes #83.
+
+### Tests
+- **`PromptValidationTests.cs`** gains three `[Theory]` methods × 3 `InlineData` cases each covering null / `""` / `"   "` for Blueprint, DesignHtml, Storyboard. Placeholder prompt strings only per ADR-013 — no real prompt content embedded. Suite: 600 → 609 passing.
+
+---
+
 ## [0.15.3] — 2026-04-21
 
 ### Fixed
