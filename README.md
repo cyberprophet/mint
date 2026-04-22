@@ -38,7 +38,7 @@ var title = await gpt.GenerateTitleAsync(systemPrompt, conversationText, cancell
 // Uses gpt-5-nano by default; titles are capped at 50 characters
 ```
 
-Per [ADR-013](https://github.com/cyberprophet/mint), all agent system prompts are owned by the consumer (page-mint-server) and injected at the call site. This package ships no prompt content — callers must supply `systemPrompt` to every generation method.
+Per [ADR-013](https://github.com/Creative-deliverables/page-mint/blob/main/decisions/013-p7-prompt-ownership-policy.md), all agent system prompts are owned by the consumer (page-mint-server) and injected at the call site. This package ships no prompt content — callers must supply `systemPrompt` to every generation method.
 
 ## Releases
 
