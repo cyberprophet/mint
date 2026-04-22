@@ -274,7 +274,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             LatencyMs: (int)latencyMs));
     }
 
-    static string? CleanTitleResponse(string raw)
+    internal static string? CleanTitleResponse(string raw)
     {
         var cleaned = ThinkBlockRegex().Replace(raw, string.Empty);
         var title = cleaned

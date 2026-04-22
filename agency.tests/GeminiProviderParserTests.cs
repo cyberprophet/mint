@@ -420,4 +420,99 @@ public class GeminiProviderParserTests
         Assert.NotNull(result);
         Assert.Equal("hero", result.LayoutPattern);
     }
+
+    // ─── CleanTitleResponse (exercises ThinkBlockRegex generated class) ─────────
+    //
+    // Mirrors the OpenAI-side coverage in GptServiceInternalTests.cs. Gemini 2.5-pro
+    // frequently emits <think>...</think> blocks even when asked for a bare title, and
+    // the 50-character truncation is the product-facing invariant.
+
+    [Fact]
+    public void CleanTitleResponse_PlainTitle_ReturnsTrimmedTitle()
+    {
+        var result = GeminiProvider.CleanTitleResponse("Skincare Landing Page");
+        Assert.Equal("Skincare Landing Page", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_ThinkBlockRemoved_ReturnsFollowingLine()
+    {
+        var result = GeminiProvider.CleanTitleResponse("<think>reasoning here</think>\nActual Title");
+        Assert.Equal("Actual Title", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_MultilineThinkBlock_AllRemovedBeforeTitle()
+    {
+        var result = GeminiProvider.CleanTitleResponse("<think>\nline1\nline2\n</think>\nClean Title");
+        Assert.Equal("Clean Title", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_OnlyThinkBlock_ReturnsNull()
+    {
+        var result = GeminiProvider.CleanTitleResponse("<think>only think content</think>");
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_EmptyString_ReturnsNull()
+    {
+        var result = GeminiProvider.CleanTitleResponse(string.Empty);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_WhitespaceOnly_ReturnsNull()
+    {
+        var result = GeminiProvider.CleanTitleResponse("   \n   \n  ");
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_TitleOver50Chars_TruncatesWithEllipsis()
+    {
+        var longTitle = new string('X', 60);
+        var result = GeminiProvider.CleanTitleResponse(longTitle);
+        Assert.NotNull(result);
+        Assert.Equal(50, result!.Length);
+        Assert.EndsWith("...", result);
+        Assert.Equal(new string('X', 47) + "...", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_TitleExactly50Chars_NotTruncated()
+    {
+        var title = new string('Z', 50);
+        var result = GeminiProvider.CleanTitleResponse(title);
+        Assert.Equal(title, result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_MultipleLines_ReturnsFirstNonEmpty()
+    {
+        var result = GeminiProvider.CleanTitleResponse("\n\nFirst Non-Empty Line\nSecond Line");
+        Assert.Equal("First Non-Empty Line", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_WithLeadingAndTrailingWhitespaceInLine_TrimmedCorrectly()
+    {
+        var result = GeminiProvider.CleanTitleResponse("  Hello World  ");
+        Assert.Equal("Hello World", result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_ThinkBlockFollowedByEmpty_ReturnsNull()
+    {
+        var result = GeminiProvider.CleanTitleResponse("<think>content</think>\n\n   \n  ");
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void CleanTitleResponse_QuoteWrappedTitle_TrimmedToInner()
+    {
+        var result = GeminiProvider.CleanTitleResponse("\"Wrapped Title\"");
+        Assert.Equal("Wrapped Title", result);
+    }
 }
