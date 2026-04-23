@@ -8,7 +8,7 @@
 
 		<!-- NuGet Package -->
 		<PackageId>ShareInvest.Agency</PackageId>
-		<Version>0.16.0</Version>
+		<Version>0.16.1</Version>
 		<Authors>cyberprophet</Authors>
 		<Company>ShareInvest Corp.</Company>
 		<Copyright>Copyright ⓒ 2026, ShareInvest Corp.</Copyright>
@@ -24,6 +24,10 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<PackageIcon>analytics.png</PackageIcon>
+
+		<!-- Analysis: CA2007 (ConfigureAwait) as error to prevent regression -->
+		<AnalysisLevel>latest-Recommended</AnalysisLevel>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>

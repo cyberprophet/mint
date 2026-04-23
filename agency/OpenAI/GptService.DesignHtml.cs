@@ -75,7 +75,7 @@ public partial class GptService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken).ConfigureAwait(false);
             var completion = result.Value;
 
             if (completion.Usage is { } usage)

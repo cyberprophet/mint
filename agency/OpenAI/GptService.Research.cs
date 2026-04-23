@@ -148,7 +148,7 @@ public partial class GptService
             }
 
             var iterationSw = Stopwatch.StartNew();
-            var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken).ConfigureAwait(false);
             iterationSw.Stop();
             var completion = result.Value;
 
@@ -178,7 +178,7 @@ public partial class GptService
                                 toolResult2 = await webTools.SearchAsync(
                                     args.RootElement.GetProperty("query").GetString() ?? "",
                                     args.RootElement.TryGetProperty("numResults", out var nr) ? nr.GetInt32() : 8,
-                                    cancellationToken);
+                                    cancellationToken).ConfigureAwait(false);
                                 consecutiveFetchFailures = 0; // search success resets budget
                                 break;
 
@@ -197,7 +197,7 @@ public partial class GptService
                                     toolResult2 = "[Already fetched — see previous results above]";
                                     break;
                                 }
-                                var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken);
+                                var fetchResult = await webTools.FetchAsync(fetchUrl, cancellationToken).ConfigureAwait(false);
                                 var promptText = fetchResult.ToPromptText();
                                 if (promptText.Length > MaxToolResultChars)
                                 {
@@ -261,7 +261,7 @@ public partial class GptService
 
         // Loop exhausted: attempt one final synthesis call with tools disabled
         logger.LogWarning("Research loop exhausted {Max} iterations. Attempting final synthesis", maxIterations);
-        return await SynthesizePartialResultAsync(chatClient, messages, model, onUsage, cancellationToken);
+        return await SynthesizePartialResultAsync(chatClient, messages, model, onUsage, cancellationToken).ConfigureAwait(false);
     }
 
     async Task<ResearchResult?> SynthesizePartialResultAsync(
@@ -285,7 +285,7 @@ public partial class GptService
 
         try
         {
-            var result = await chatClient.CompleteChatAsync(messages, synthesisOptions, cancellationToken);
+            var result = await chatClient.CompleteChatAsync(messages, synthesisOptions, cancellationToken).ConfigureAwait(false);
             var completion = result.Value;
 
             if (onUsage is not null && completion.Usage is { } usage)

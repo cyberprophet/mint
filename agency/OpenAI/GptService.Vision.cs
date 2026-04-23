@@ -52,7 +52,7 @@ public partial class GptService
 #pragma warning restore OPENAI001
 
         var sw = Stopwatch.StartNew();
-        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         if (onUsage is not null && result.Value.Usage is { } usage)
@@ -90,7 +90,7 @@ public partial class GptService
         };
 
         var repairSw = Stopwatch.StartNew();
-        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken);
+        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken).ConfigureAwait(false);
         repairSw.Stop();
 
         if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)

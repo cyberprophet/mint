@@ -96,6 +96,7 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     public virtual async Task<string?> GenerateTitleAsync(string systemPrompt, string conversationText, string model = "gpt-5-nano", Action<ApiUsageEvent>? onUsage = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationText);
 
         var chatClient = GetChatClient(model);
 
@@ -109,7 +110,7 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
             ChatMessage.CreateUserMessage($"<conversation>\n{conversationText}\n</conversation>")
         };
         var sw = Stopwatch.StartNew();
-        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         if (onUsage is not null && result.Value.Usage is { } usage)
@@ -140,7 +141,7 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
         };
 
         var repairSw = Stopwatch.StartNew();
-        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken);
+        var repairResult = await chatClient.CompleteChatAsync(repairMessages, options, cancellationToken).ConfigureAwait(false);
         repairSw.Stop();
 
         if (onUsage is not null && repairResult.Value.Usage is { } repairUsage)

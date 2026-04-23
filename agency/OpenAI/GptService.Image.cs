@@ -41,7 +41,7 @@ public partial class GptService
         try
         {
             var sw = Stopwatch.StartNew();
-            result = await imageClient.GenerateImagesAsync(request.Prompt, 1, options, cancellationToken);
+            result = await imageClient.GenerateImagesAsync(request.Prompt, 1, options, cancellationToken).ConfigureAwait(false);
             sw.Stop();
 
             if (onUsage is not null)

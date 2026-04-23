@@ -104,10 +104,10 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
         if (_exaApiKey is not null)
             request.Headers.TryAddWithoutValidation("x-api-key", _exaApiKey);
 
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
-        var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+        var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var line in responseText.Split('\n'))
         {
@@ -142,7 +142,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
             || (uri.Scheme != "http" && uri.Scheme != "https"))
             throw new InvalidOperationException("URL must be a valid http:// or https:// address.");
 
-        if (await IsPrivateHostAsync(uri.Host, cancellationToken))
+        if (await IsPrivateHostAsync(uri.Host, cancellationToken).ConfigureAwait(false))
             throw new InvalidOperationException("Requests to private/internal network addresses are not allowed.");
 
         // Manual redirect loop — re-validate each hop against the SSRF deny-list.
@@ -153,7 +153,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
 
         for (int hop = 0; ; hop++)
         {
-            response = await _fetchClient.GetAsync(currentUri, cancellationToken);
+            response = await _fetchClient.GetAsync(currentUri, cancellationToken).ConfigureAwait(false);
 
             if ((int)response.StatusCode is >= 301 and <= 308
                 && response.Headers.Location is { } location)
@@ -166,7 +166,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
                 if (nextUri.Scheme != "http" && nextUri.Scheme != "https")
                     throw new InvalidOperationException($"Redirect to unsupported scheme ({nextUri.Scheme}).");
 
-                if (await IsPrivateHostAsync(nextUri.Host, cancellationToken))
+                if (await IsPrivateHostAsync(nextUri.Host, cancellationToken).ConfigureAwait(false))
                     throw new InvalidOperationException("Redirect target resolves to a private/internal network address.");
 
                 currentUri = nextUri;
@@ -189,7 +189,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
             retryRequest.Headers.UserAgent.Clear();
             retryRequest.Headers.UserAgent.ParseAdd("page-mint-agency");
 
-            response = await _fetchClient.SendAsync(retryRequest, cancellationToken);
+            response = await _fetchClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
         }
 
         using (response)
@@ -202,7 +202,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
             if (!contentType.StartsWith("text/") && contentType != "application/xhtml+xml")
                 throw new InvalidOperationException($"Non-text content type ({contentType}). Only text-based pages are supported.");
 
-            var html = await response.Content.ReadAsStringAsync(cancellationToken);
+            var html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             // Extract structured metadata fields
             var title = ExtractMetaField(html, "og:title") ?? ExtractTitleTag(html);
@@ -244,7 +244,7 @@ public sealed partial class WebTools : ISearchProvider, IDisposable
 
         try
         {
-            var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken);
+            var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false);
 
             foreach (var addr in addresses)
             {

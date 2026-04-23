@@ -62,7 +62,7 @@ public partial class GptService
             GenerateSingleShotAsync(request, shot, index,
                 BuildShotPrompt(basePrompt, shot, request.IntentText), onUsage, cancellationToken)).ToArray();
 
-        var results = await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 
         return new StudioMintResult(results, IsComplete: results.All(s => s.ImageBytes is not null));
     }
@@ -96,7 +96,7 @@ public partial class GptService
                 prompt,
                 imageCount: 1,
                 options,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
             sw.Stop();
 
             if (onUsage is not null)
@@ -117,7 +117,7 @@ public partial class GptService
                 if (textInput == 0 && imageInput == 0)
                     imageInput = (int)(usage?.InputTokenCount ?? 0);
                 onUsage(new ApiUsageEvent(
-                    "openai",
+                    ProviderName,
                     imageModel ?? "gpt-image-1",
                     textInput,
                     (int)(usage?.OutputTokenCount ?? 0),

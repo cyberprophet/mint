@@ -94,7 +94,7 @@ public partial class GptService
         };
 
         var sw = Stopwatch.StartNew();
-        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        var result = await chatClient.CompleteChatAsync(messages, options, cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         var completion = result.Value;

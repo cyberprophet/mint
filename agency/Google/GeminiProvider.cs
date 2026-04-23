@@ -4,6 +4,7 @@ using Google.GenAI.Types;
 using Microsoft.Extensions.Logging;
 
 using ShareInvest.Agency.Models;
+using ShareInvest.Agency.OpenAI;
 
 using System.Diagnostics;
 using System.Text.Json;
@@ -43,6 +44,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationText);
 
         var config = new GenerateContentConfig
         {
@@ -56,7 +58,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             model: model,
             contents: TextContent($"<conversation>\n{conversationText}\n</conversation>"),
             config: config,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         ReportUsage(response, model, "title", sw.ElapsedMilliseconds, onUsage);
@@ -108,7 +110,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             model: model,
             contents: content,
             config: config,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         ReportUsage(response, model, "vision", sw.ElapsedMilliseconds, onUsage);
@@ -160,7 +162,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             return null;
 
         var documentBlock = string.Join("\n\n", documents.Select(d =>
-            $"--- DOCUMENT: {d.Id} ---\n{d.Text}\n--- END ---"));
+            $"--- DOCUMENT: {PromptSanitizer.EscapeIdentifierForPrompt(d.Id)} ---\n{PromptSanitizer.EscapeForPrompt(d.Text)}\n--- END ---"));
 
         var config = new GenerateContentConfig
         {
@@ -174,7 +176,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             model: model,
             contents: TextContent(documentBlock),
             config: config,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         ReportUsage(response, model, "product_info", sw.ElapsedMilliseconds, onUsage);
@@ -206,12 +208,12 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
         var userMessage = $"""
             Analyze this reference page for design and copy DNA.
 
-            URL: {url}
-            Target language: {context.TargetLanguage}
-            {(context.ProductName is not null ? $"Product context: {context.ProductName}" : "")}
+            URL: {PromptSanitizer.EscapeForPrompt(url)}
+            Target language: {PromptSanitizer.EscapeForPrompt(context.TargetLanguage)}
+            {(context.ProductName is not null ? $"Product context: {PromptSanitizer.EscapeForPrompt(context.ProductName)}" : "")}
 
             --- PAGE HTML (truncated) ---
-            {truncatedHtml}
+            {PromptSanitizer.EscapeForPrompt(truncatedHtml)}
             --- END HTML ---
 
             Return JSON with fields: layoutPattern, copyTone, colorPalette (hex array), typographyStyle, messagingAngles (string array), rawSummary.
@@ -233,7 +235,7 @@ public partial class GeminiProvider : ITextGenerationProvider, IVisionProvider
             model: refLinkModel,
             contents: TextContent(userMessage),
             config: config,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         sw.Stop();
 
         ReportUsage(response, refLinkModel, "reference_link", sw.ElapsedMilliseconds, onUsage);

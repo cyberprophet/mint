@@ -76,7 +76,7 @@ public partial class GptService
             ct.ThrowIfCancellationRequested();
 
             var sw = Stopwatch.StartNew();
-            var result = await chatClient.CompleteChatAsync(messages, options, ct);
+            var result = await chatClient.CompleteChatAsync(messages, options, ct).ConfigureAwait(false);
             sw.Stop();
 
             var completion = result.Value;
@@ -84,7 +84,7 @@ public partial class GptService
             if (onUsage is not null && completion.Usage is { } usage)
             {
                 onUsage(new ApiUsageEvent(
-                    "openai", model,
+                    ProviderName, model,
                     usage.InputTokenCount, usage.OutputTokenCount,
                     "reference_link",
                     LatencyMs: (int)sw.ElapsedMilliseconds));

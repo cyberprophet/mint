@@ -20,7 +20,7 @@ public class FallbackSearchProvider(
     {
         try
         {
-            return await primary.SearchAsync(query, numResults, ct);
+            return await primary.SearchAsync(query, numResults, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -28,7 +28,7 @@ public class FallbackSearchProvider(
             logger.LogWarning(ex, "Primary search provider {Provider} failed; falling back to secondary",
                 primary.GetType().Name);
 
-            return await secondary.SearchAsync(query, numResults, ct);
+            return await secondary.SearchAsync(query, numResults, ct).ConfigureAwait(false);
         }
     }
 }
