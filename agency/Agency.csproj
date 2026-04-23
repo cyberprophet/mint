@@ -8,7 +8,7 @@
 
 		<!-- NuGet Package -->
 		<PackageId>ShareInvest.Agency</PackageId>
-		<Version>0.16.1</Version>
+		<Version>0.16.2</Version>
 		<Authors>cyberprophet</Authors>
 		<Company>ShareInvest Corp.</Company>
 		<Copyright>Copyright ⓒ 2026, ShareInvest Corp.</Copyright>
@@ -25,9 +25,11 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<PackageIcon>analytics.png</PackageIcon>
 
-		<!-- Analysis: CA2007 (ConfigureAwait) as error to prevent regression -->
-		<AnalysisLevel>latest-Recommended</AnalysisLevel>
-		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<!-- Analysis: CA2007 (ConfigureAwait) is promoted to `error` via
+		     .editorconfig. Do NOT set AnalysisLevel to latest-Recommended here
+		     — that broadens the analyzer pack (CA1725, CA1848, CA1310, CA1822,
+		     CA1859, …) and P5's CI builds with "warnaserror", which turned
+		     every broadened warning into a build failure in 0.16.1. -->
 	</PropertyGroup>
 
 	<ItemGroup>

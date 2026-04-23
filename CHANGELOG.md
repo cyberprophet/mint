@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.16.2] — 2026-04-23
+
+### Fixed
+- **Drop `<AnalysisLevel>latest-Recommended</AnalysisLevel>` from `Agency.csproj`.** The broadened analyzer pack (CA1725, CA1848, CA1310, CA1822, CA1859, …) produced ~120 new warnings that P5's CI pipeline promoted to build errors via `dotnet build Vendo.slnx --no-restore -c Release --warnaserror`, breaking the 0.16.1 consumer deploy on run `24864278028`. The intent of 0.16.1 — promote CA2007 to error to prevent regression — is preserved via `.editorconfig` (`dotnet_diagnostic.CA2007.severity = error`), which enables the analyzer on its own without the broader rule set. Verified locally: `dotnet build -c Release --warnaserror` clean with 0.16.2; deliberately removing `.ConfigureAwait(false)` still triggers `CA2007` as error.
+
+### Notes
+- **NuGet consumers: bump `Models.csproj`** in P5 to `Version="0.16.2"` and redeploy. 0.16.1 is retained on nuget.org for history but should not be used because it fails P5's `--warnaserror` CI build.
+
+---
+
 ## [0.16.1] — 2026-04-23
 
 ### Security
