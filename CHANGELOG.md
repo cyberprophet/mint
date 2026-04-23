@@ -10,6 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.16.1] — 2026-04-23
+
+### Security
+- **`GeminiProvider` prompt-sanitizer parity with OpenAI path** (P0 sweep #92). `Google/GeminiProvider.cs` now wraps user-controlled fields with `PromptSanitizer.EscapeForPrompt` (document text, URL, target language, product name, truncated HTML) and `PromptSanitizer.EscapeIdentifierForPrompt` (document IDs) in `ExtractProductInfoAsync` + `AnalyzeReferenceLinkAsync`, matching the OpenAI `GptService.ProductInfo` hardening shipped in 0.14.0 (Intent 043). A prompt-injection payload in a linked document or reference URL now breaks out of the Gemini path no more easily than the OpenAI path.
+
+### Changed
+- **`ConfigureAwait(false)` applied to every `await` in the library** (P0 sweep #93). 32 call sites across 12 files: `GptService.cs`, `GptService.Research.cs`, `GptService.Blueprint.cs`, `GptService.DesignHtml.cs`, `GptService.Storyboard.cs`, `GptService.Vision.cs`, `GptService.ReferenceLink.cs`, `GptService.StudioMint.cs`, `GptService.ProductInfo.cs`, `GptService.Image.cs`, `WebTools.cs`, `FallbackSearchProvider.cs`, `Google/GeminiProvider.cs`. This follows CA2007 guidance for public-library authoring and removes deadlock risk for callers in non-ASP.NET-Core hosts (WinForms, WPF, ASP.NET Framework, sync-over-async).
+- **`CA2007` promoted to compile-time error.** `.editorconfig` now sets `dotnet_diagnostic.CA2007.severity = error` and `Agency.csproj` adopts `<AnalysisLevel>latest-Recommended</AnalysisLevel>` so any future `await` missing `.ConfigureAwait(false)` fails the build.
+
+### Fixed
+- **`GenerateTitleAsync` null-guard** on both `GptService` and `GeminiProvider` (P0 sweep #94 — P7-04). `conversationText` is now validated with `ArgumentException.ThrowIfNullOrWhiteSpace`, matching the existing guard pattern used on other prompt parameters. Previously callers would get a cryptic `NullReferenceException` during string interpolation instead of a clean argument error.
+- **`ApiUsageEvent` provider name now uses `ProviderName`** (P0 sweep #94 — P7-07). `GptService.ReferenceLink.cs:87` and `GptService.StudioMint.cs:120` were hardcoding `new ApiUsageEvent("openai", ...)` regardless of the active provider, corrupting billing/analytics aggregation when the caller was configured for Gemini or any other provider. Both sites now read `this.ProviderName`.
+
+### Notes
+- **NuGet consumers: bump `Models.csproj`** in P5 (creative-server) from `<PackageReference Include="ShareInvest.Agency" Version="0.16.0" />` to `Version="0.16.1"` and redeploy. The `ConfigureAwait(false)` rollout is source-compatible; no API surface changes.
+- **Tests**: `HardeningP0Sweep20260423Tests.cs` covers sanitizer delimiter presence in both Gemini entry points, `ArgumentException` throws for null/empty/whitespace title inputs on both providers, and `ApiUsageEvent.ProviderName` propagation.
+
+---
+
 ## [0.16.0] — 2026-04-22
 
 ### Added
