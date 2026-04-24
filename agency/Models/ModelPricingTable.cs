@@ -28,7 +28,7 @@ public record ModelPricing(
 public static class ModelPricingTable
 {
     /// <summary>Increment when pricing entries are added, removed, or changed.</summary>
-    public const int PricingVersion = 4;
+    public const int PricingVersion = 5;
 
     /// <summary>
     /// Known model prices keyed by (provider, model) tuple. Lookups are case-insensitive.
@@ -64,9 +64,15 @@ public static class ModelPricingTable
             //   gpt-image-1       text $5.00 / img $10.00 / out $40.00 / cached-text $1.25 / cached-img $2.50
             //   gpt-image-1.5     text $5.00 / img $8.00  / out $32.00 / cached-text $1.25 / cached-img $2.00
             //   gpt-image-1-mini  text $2.00 / img $2.50  / out $8.00  / cached-text $0.20 / cached-img $0.25
+            //   gpt-image-2       text $5.00 / img $8.00  / out $32.00 / cached-text $1.25 / cached-img $2.00
+            //       (estimated — public pricing matches gpt-image-1.5 per 2026-04-24
+            //        spot-check; revise when OpenAI publishes a distinct row.
+            //        StudioMint edit endpoint uses this model — without it,
+            //        ApiUsageLog.EstimatedCostUsd was null for every run; mint#99)
             [("openai", "gpt-image-1")]      = new(5.00m, 40.00m, CacheReadUsdPer1M: 1.25m, ImageInputUsdPer1M: 10.00m, ImageCacheReadUsdPer1M: 2.50m),
             [("openai", "gpt-image-1.5")]    = new(5.00m, 32.00m, CacheReadUsdPer1M: 1.25m, ImageInputUsdPer1M: 8.00m,  ImageCacheReadUsdPer1M: 2.00m),
             [("openai", "gpt-image-1-mini")] = new(2.00m, 8.00m,  CacheReadUsdPer1M: 0.20m, ImageInputUsdPer1M: 2.50m, ImageCacheReadUsdPer1M: 0.25m),
+            [("openai", "gpt-image-2")]      = new(5.00m, 32.00m, CacheReadUsdPer1M: 1.25m, ImageInputUsdPer1M: 8.00m,  ImageCacheReadUsdPer1M: 2.00m),
         }.AsReadOnly();
 
     /// <summary>Estimates the USD cost for a single API call based on token counts. Returns null for unknown models.</summary>
