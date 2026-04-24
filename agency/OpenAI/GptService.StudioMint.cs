@@ -79,17 +79,30 @@ public partial class GptService
         {
             var imageClient = GetImageClient(imageModel);
 
-            // Do NOT set OutputFileFormat here. The OpenAI gpt-image-1
-            // edit endpoint (`POST /v1/images/edits`) rejects `output_format`
-            // as `unknown_parameter` — unlike the generations endpoint, which
-            // accepts it (see `GptService.Image.cs`). The SDK's
-            // `ImageEditOptions` exposes the property anyway, so the
-            // compiler can't catch this. The edit endpoint returns PNG by
-            // default, which is what we want.
+            // Tuned for the `gpt-image-2` edit endpoint (the default for
+            // StudioMint since 0.16.4 — configured via `Agency.Models.Image`
+            // in P5). Per the Azure Foundry REST spec for
+            // `POST /openai/v1/images/edits`, gpt-image-2 accepts
+            // `size`, `quality`, `output_format`, `background`, `user`.
+            //
+            // Defaults for 4-cut commerce product shots:
+            //   Size             = 1024x1024 (square, PageMint asset ratio)
+            //   Quality          = High      (paid output; auto can fall to medium)
+            //   OutputFileFormat = Png       (lossless, no compression artefacts)
+            //   EndUserId        = userId    (abuse / support traceability)
+            //
+            // NOTE: `gpt-image-1` and `gpt-image-1-mini` reject `quality`
+            // and `output_format` as `unknown_parameter`. If P5 ever
+            // reconfigures `Agency.Models.Image` to a legacy model,
+            // StudioMint will 400 until it's set back to gpt-image-2 or
+            // later. PageMint's generations path uses a separate config
+            // key (`Agency.Models.PageMintImage`) and still points at
+            // gpt-image-1-mini for cost.
             var options = new ImageEditOptions
             {
                 Size = GeneratedImageSize.W1024xH1024,
                 Quality = GeneratedImageQuality.High,
+                OutputFileFormat = GeneratedImageFileFormat.Png,
                 EndUserId = request.UserId
             };
 

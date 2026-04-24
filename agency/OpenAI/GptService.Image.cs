@@ -28,7 +28,11 @@ public partial class GptService
     {
         var size = MapSize(request.AspectRatio);
 
-        var imageClient = GetImageClient(imageModel);
+        // PageMint generations intentionally routes through a separate
+        // model knob so it can use a cheaper variant (e.g., gpt-image-1-mini)
+        // independent of StudioMint's edit-endpoint model (gpt-image-2).
+        var effectiveModel = EffectiveImageGenerationModel;
+        var imageClient = GetImageClient(effectiveModel);
 
         var options = new ImageGenerationOptions
         {
@@ -61,7 +65,7 @@ public partial class GptService
                 // ModelPricingTable can bill each bucket at its own rate.
                 var textInput = (int)(usage?.InputTokenDetails?.TextTokenCount ?? usage?.InputTokenCount ?? 0);
                 var imageInput = (int)(usage?.InputTokenDetails?.ImageTokenCount ?? 0);
-                onUsage(new ApiUsageEvent(ProviderName, imageModel ?? "gpt-image-1",
+                onUsage(new ApiUsageEvent(ProviderName, effectiveModel ?? "gpt-image-1",
                     textInput,
                     (int)(usage?.OutputTokenCount ?? 0),
                     "image", LatencyMs: (int)sw.ElapsedMilliseconds,

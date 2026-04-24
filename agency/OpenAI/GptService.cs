@@ -43,11 +43,27 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key,
     /// custom image model name, and optional Exa API key for web research.
     /// </summary>
-    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey)
+    /// <param name="logger">Logger instance for diagnostic output.</param>
+    /// <param name="apiKey">OpenAI API key.</param>
+    /// <param name="imageModel">
+    /// Model used by the edit endpoint (StudioMint). Also the fallback for
+    /// generations if <paramref name="imageGenerationModel"/> is null.
+    /// </param>
+    /// <param name="exaApiKey">Optional Exa API key for web research.</param>
+    /// <param name="imageGenerationModel">
+    /// Optional separate model for the generations endpoint
+    /// (<see cref="GenerateImageAsync{T}"/>). When null, falls back to
+    /// <paramref name="imageModel"/>. Set this so PageMint's
+    /// generations path and StudioMint's edit path can target different
+    /// models (e.g., <c>gpt-image-1-mini</c> for cheap generations and
+    /// <c>gpt-image-2</c> for high-fidelity edits).
+    /// </param>
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey, string? imageGenerationModel = null)
     {
         client = new OpenAIClient(apiKey);
         this.logger = logger;
         this.imageModel = imageModel;
+        this.imageGenerationModel = imageGenerationModel;
         webTools = new WebTools(exaApiKey);
     }
 
@@ -57,14 +73,19 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     /// <param name="logger">Logger instance for diagnostic output.</param>
     /// <param name="apiKey">Provider API key.</param>
     /// <param name="options">Client options with custom <see cref="OpenAIClientOptions.Endpoint"/>.</param>
-    /// <param name="imageModel">Name of the image model to use for image generation.</param>
+    /// <param name="imageModel">Name of the image model to use for image editing (StudioMint).</param>
     /// <param name="exaApiKey">Optional Exa API key for web research.</param>
     /// <param name="providerName">Provider name for telemetry (e.g., "groq", "minimax").</param>
-    public GptService(ILogger<GptService> logger, string apiKey, OpenAIClientOptions options, string? imageModel = null, string? exaApiKey = null, string providerName = "openai")
+    /// <param name="imageGenerationModel">
+    /// Optional separate model for the generations endpoint. Falls back
+    /// to <paramref name="imageModel"/> when null.
+    /// </param>
+    public GptService(ILogger<GptService> logger, string apiKey, OpenAIClientOptions options, string? imageModel = null, string? exaApiKey = null, string providerName = "openai", string? imageGenerationModel = null)
     {
         client = new OpenAIClient(new System.ClientModel.ApiKeyCredential(apiKey), options);
         this.logger = logger;
         this.imageModel = imageModel;
+        this.imageGenerationModel = imageGenerationModel;
         this.providerName = providerName;
         webTools = new WebTools(exaApiKey);
     }
@@ -75,8 +96,16 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     readonly OpenAIClient client;
     readonly ILogger<GptService> logger;
     readonly string? imageModel;
+    readonly string? imageGenerationModel;
     readonly string providerName = "openai";
     readonly WebTools webTools;
+
+    /// <summary>
+    /// Model used by the generations endpoint (<see cref="GenerateImageAsync{T}"/>).
+    /// Falls back to <see cref="imageModel"/> when an explicit
+    /// generations model wasn't configured.
+    /// </summary>
+    internal string? EffectiveImageGenerationModel => imageGenerationModel ?? imageModel;
 
     /// <summary>Gets a chat client for the specified model from the composed <see cref="OpenAIClient"/>.</summary>
     internal virtual ChatClient GetChatClient(string model) => client.GetChatClient(model);
