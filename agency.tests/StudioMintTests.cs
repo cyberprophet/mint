@@ -97,6 +97,53 @@ public class StudioMintTests
         Assert.Equal(prompts.Length, prompts.Distinct().Count());
     }
 
+    // ─── ClassifyBadRequest — separates moderation from generic 400s ─────────
+
+    [Fact]
+    public void ClassifyBadRequest_NullMessage_ReturnsBadRequest()
+    {
+        Assert.Equal("bad_request", GptService.ClassifyBadRequest(null));
+    }
+
+    [Fact]
+    public void ClassifyBadRequest_EmptyMessage_ReturnsBadRequest()
+    {
+        Assert.Equal("bad_request", GptService.ClassifyBadRequest(string.Empty));
+    }
+
+    [Fact]
+    public void ClassifyBadRequest_ModerationBlocked_ReturnsModeration()
+    {
+        // Real OpenAI body snippet for a content-policy rejection.
+        var message = "HTTP 400 (invalid_request_error: moderation_blocked) ...";
+        Assert.Equal("moderation", GptService.ClassifyBadRequest(message));
+    }
+
+    [Fact]
+    public void ClassifyBadRequest_ContentPolicyViolation_ReturnsModeration()
+    {
+        var message = "HTTP 400 ... content_policy_violation ...";
+        Assert.Equal("moderation", GptService.ClassifyBadRequest(message));
+    }
+
+    [Fact]
+    public void ClassifyBadRequest_UnknownParameter_ReturnsBadRequest()
+    {
+        // This is the exact shape of the regression that was silently masked
+        // as "moderation" in 0.16.2 when OutputFileFormat leaked into the edit
+        // request (`output_format` unsupported on the edits endpoint).
+        var message = "HTTP 400 (invalid_request_error: unknown_parameter) " +
+                      "Parameter: output_format\n\nUnknown parameter: 'output_format'.";
+        Assert.Equal("bad_request", GptService.ClassifyBadRequest(message));
+    }
+
+    [Fact]
+    public void ClassifyBadRequest_IsCaseInsensitive()
+    {
+        Assert.Equal("moderation", GptService.ClassifyBadRequest("MODERATION_BLOCKED"));
+        Assert.Equal("moderation", GptService.ClassifyBadRequest("Content_Policy_Violation"));
+    }
+
     // ─── Embedded base prompt resource (ADR-013) ─────────────────────────────
 
     [Fact]
