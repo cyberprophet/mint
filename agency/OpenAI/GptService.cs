@@ -43,6 +43,23 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     /// Initializes a new instance of <see cref="GptService"/> with the specified logger, API key,
     /// custom image model name, and optional Exa API key for web research.
     /// </summary>
+    /// <remarks>
+    /// Kept for binary compatibility with assemblies compiled against
+    /// ≤0.16.2. Delegates to the 5-param overload with a null
+    /// generations model so callers that didn't know about
+    /// <c>imageGenerationModel</c> get the old behaviour
+    /// (generations share <paramref name="imageModel"/>).
+    /// </remarks>
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey)
+        : this(logger, apiKey, imageModel, exaApiKey, imageGenerationModel: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="GptService"/> with separate
+    /// image models for the edit endpoint (StudioMint) and the generations
+    /// endpoint (PageMint). Added in 0.16.4.
+    /// </summary>
     /// <param name="logger">Logger instance for diagnostic output.</param>
     /// <param name="apiKey">OpenAI API key.</param>
     /// <param name="imageModel">
@@ -51,14 +68,14 @@ public partial class GptService : ITextGenerationProvider, IVisionProvider, IIma
     /// </param>
     /// <param name="exaApiKey">Optional Exa API key for web research.</param>
     /// <param name="imageGenerationModel">
-    /// Optional separate model for the generations endpoint
+    /// Separate model for the generations endpoint
     /// (<see cref="GenerateImageAsync{T}"/>). When null, falls back to
     /// <paramref name="imageModel"/>. Set this so PageMint's
     /// generations path and StudioMint's edit path can target different
     /// models (e.g., <c>gpt-image-1-mini</c> for cheap generations and
     /// <c>gpt-image-2</c> for high-fidelity edits).
     /// </param>
-    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey, string? imageGenerationModel = null)
+    public GptService(ILogger<GptService> logger, string apiKey, string imageModel, string? exaApiKey, string? imageGenerationModel)
     {
         client = new OpenAIClient(apiKey);
         this.logger = logger;
