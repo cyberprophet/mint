@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.16.6] — 2026-04-24
+
+### Fixed
+- **Drop `ImageEditOptions.Quality` in `GenerateSingleShotAsync`** — OpenAI .NET SDK 2.10.0 serializes this property in a shape the `POST /v1/images/edits` endpoint rejects as `HTTP 400 (invalid_request_error: unknown_parameter: quality)`, despite OpenAI's REST API accepting `quality=high` on the same endpoint for the same model when the request is built by hand. Reproduced in an isolated .NET 10 probe on 2026-04-24 against `gpt-image-2`. Empirically, removing `Quality` while keeping `Size` + `OutputFileFormat` + `EndUserId` makes the call succeed; all other single-field probes (`Size` only, `OutputFileFormat` only, `Size+OutputFileFormat+EndUserId`) also succeed. Only the presence of `Quality` in the options bag triggers the reject.
+
+### Known upstream issue
+- Root cause lives in `OpenAI.Images.ImageEditOptions` in the OpenAI .NET SDK 2.10.0. The public generations endpoint (which StudioMint does not use) appears to accept the same property correctly, so the regression is specific to the edit path's serialization. Tracking for SDK upgrade when a fix lands. Until then, we rely on the server's default `quality=auto`, which is acceptable for the v1 4-cut output.
+
+### Notes
+- Purely behavioural — no API surface changes. P5 consumers do not need to touch their wiring beyond bumping the NuGet reference.
+
+---
+
 ## [0.16.5] — 2026-04-24
 
 ### Fixed

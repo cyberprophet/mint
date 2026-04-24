@@ -79,29 +79,30 @@ public partial class GptService
         {
             var imageClient = GetImageClient(imageModel);
 
-            // Tuned for the `gpt-image-2` edit endpoint (the default for
-            // StudioMint since 0.16.4 — configured via `Agency.Models.Image`
-            // in P5). Per the Azure Foundry REST spec for
-            // `POST /openai/v1/images/edits`, gpt-image-2 accepts
-            // `size`, `quality`, `output_format`, `background`, `user`.
+            // Tuned for the `gpt-image-2` edit endpoint (default for
+            // StudioMint since 0.16.4, configured via `Agency.Models.Image`
+            // in P5).
             //
-            // Defaults for 4-cut commerce product shots:
+            // `Quality` is intentionally **NOT** set. OpenAI's public
+            // REST API accepts `quality=high` on this endpoint (verified
+            // 2026-04-24 via curl against gpt-image-2), but the OpenAI
+            // .NET SDK 2.10.0 serializes `ImageEditOptions.Quality` in a
+            // shape the edit endpoint rejects as
+            // `HTTP 400 (invalid_request_error: unknown_parameter: quality)`.
+            // The failure was reproduced in an isolated probe against
+            // 2.10.0; `Size`/`OutputFileFormat`/`EndUserId` alone work
+            // unchanged. Until the SDK fixes the quality serialization,
+            // we let the server default (`auto`) pick the quality tier
+            // — acceptable for v1 4-cut output. Revisit when the SDK is
+            // upgraded past 2.10.0.
+            //
+            // Kept defaults for 4-cut commerce product shots:
             //   Size             = 1024x1024 (square, PageMint asset ratio)
-            //   Quality          = High      (paid output; auto can fall to medium)
-            //   OutputFileFormat = Png       (lossless, no compression artefacts)
+            //   OutputFileFormat = Png       (lossless, no compression)
             //   EndUserId        = userId    (abuse / support traceability)
-            //
-            // NOTE: `gpt-image-1` and `gpt-image-1-mini` reject `quality`
-            // and `output_format` as `unknown_parameter`. If P5 ever
-            // reconfigures `Agency.Models.Image` to a legacy model,
-            // StudioMint will 400 until it's set back to gpt-image-2 or
-            // later. PageMint's generations path uses a separate config
-            // key (`Agency.Models.PageMintImage`) and still points at
-            // gpt-image-1-mini for cost.
             var options = new ImageEditOptions
             {
                 Size = GeneratedImageSize.W1024xH1024,
-                Quality = GeneratedImageQuality.High,
                 OutputFileFormat = GeneratedImageFileFormat.Png,
                 EndUserId = request.UserId
             };
